@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIzaSy_FAKE_KEY",
+  "authDomain": "omnipos-demo.firebaseapp.com",
+  "projectId": "omnipos-demo",
+  "storageBucket": "omnipos-demo.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdefgh123456789",
+  "firestoreDatabaseId": "(default)"
+}

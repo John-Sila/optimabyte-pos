@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "UserMapping": {
+      "title": "User Mapping",
+      "description": "Global UID to company mapping",
+      "type": "object",
+      "properties": {
+        "company": { "type": "string" }
+      },
+      "required": ["company"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Internal user representation for a company",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "userName": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "cashier", "manager"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "employeeId": { "type": "string" },
+        "permissions": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "userName", "role", "status", "companyId"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "A business entity in the system",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product for sale or use in production",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "price"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Stock tracking for products",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "reorderLevel": { "type": "number" },
+        "unitCost": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "quantity"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A POS transaction record",
+      "type": "object",
+      "properties": {
+        "transactionId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "cashierId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "unitPrice": { "type": "number" },
+              "discount": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          }
+        },
+        "subtotal": { "type": "number" },
+        "tax": { "type": "number" },
+        "discountTotal": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "payments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": { "type": "string" },
+              "amount": { "type": "number" },
+              "status": { "type": "string" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["completed", "pending", "cancelled"] }
+      }
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Inventory purchase record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplier": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ProductionJob": {
+      "title": "Production Job",
+      "description": "Manufacturing or compounding record",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string" },
+        "product": { "type": "string" },
+        "rawMaterials": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed"] },
+        "outputQuantity": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Stats": {
+      "title": "Stats",
+      "description": "Aggregated business metrics",
+      "type": "object",
+      "properties": {
+        "noOfUsers": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "totalRevenue": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{uid}": {
+      "schema": "UserMapping",
+      "description": "Maps a global Firebase Auth UID to a company"
+    },
+    "companies/{companyId}": {
+      "schema": "Company",
+      "description": "Core company profile"
+    },
+    "companies/{companyId}/users/{uid}": {
+      "schema": "User",
+      "description": "Company-scoped user profiles"
+    },
+    "companies/{companyId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Company product catalog"
+    },
+    "companies/{companyId}/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Inventory levels"
+    },
+    "companies/{companyId}/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Sales logs"
+    },
+    "companies/{companyId}/purchases/{purchaseId}": {
+      "schema": "Purchase",
+      "description": "Purchase logs"
+    },
+    "companies/{companyId}/production/{jobId}": {
+      "schema": "ProductionJob",
+      "description": "Production jobs"
+    },
+    "companies/{companyId}/general/stats": {
+      "schema": "Stats",
+      "description": "Aggregated stats"
+    }
+  }
+}

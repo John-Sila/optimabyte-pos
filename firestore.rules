@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function getUserMapping(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function isCompanyMember(companyId) { return isSignedIn() && exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)); }
+    function getUserRole(companyId) { return get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role; }
+    function isAdmin(companyId) { return isCompanyMember(companyId) && getUserRole(companyId) in ['admin', 'owner']; }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // 1. User Mappings (Global Root)
+    // Only used to resolve company ID. Security: Only owner can read their mapping. 
+    // Creation usually happens via secure flow/server or on first signup.
+    match /users/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid);
+      // In this demo flow, we allow setting mapping if it doesn't exist
+      allow create: if isSignedIn() && request.auth.uid == uid && incoming().keys().hasAll(['company']) && incoming().company is string;
+    }
+
+    // 2. Companies
+    match /companies/{companyId} {
+      allow get: if isCompanyMember(companyId);
+      // Only admins/owners can update general company info
+      allow update: if isAdmin(companyId) && incoming().name is string && incoming().name.size() > 0;
+      
+      // Subcollections
+      
+      // Users inside Company
+      match /users/{userId} {
+        allow read: if isCompanyMember(companyId);
+        // User creation flow logic
+        allow create: if isAdmin(companyId) && isValidId(userId) && incoming().role in ['owner', 'admin', 'manager', 'cashier'];
+        allow update: if isAdmin(companyId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'status', 'permissions', 'lastLoginAt']);
+      }
+
+      // Products
+      match /products/{productId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if isAdmin(companyId);
+      }
+
+      // Inventory
+      match /inventory/{itemId} {
+        allow read: if isCompanyMember(companyId);
+        // Inventory is updated by sales, production, and admins
+        allow write: if isCompanyMember(companyId); 
+      }
+
+      // Sales
+      match /sales/{saleId} {
+        allow read: if isCompanyMember(companyId);
+        // Any member (cashier/admin) can record a sale
+        allow create: if isCompanyMember(companyId) && incoming().grandTotal is number;
+      }
+
+      // Production
+      match /production/{jobId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if isCompanyMember(companyId);
+      }
+
+      // Reports (could be restricted to managers/admins)
+      match /reports/{reportId} {
+        allow read: if isCompanyMember(companyId) && getUserRole(companyId) in ['manager', 'admin', 'owner'];
+      }
+
+      // General / Stats
+      match /general/stats {
+        allow read: if isCompanyMember(companyId);
+        // Stats are updated via atomic increments during other operations
+        allow write: if isCompanyMember(companyId);
+      }
+    }
+  }
+}
