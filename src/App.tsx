@@ -9,6 +9,7 @@ import Inventory from './pages/Inventory';
 import Production from './pages/Production';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
+import { Toaster } from 'sonner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { firebaseUser, loading } = useAuth();
@@ -47,6 +48,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+       <Toaster position="top-center" richColors/> 
         <Routes>
           <Route path="/login" element={
             <PublicRoute>

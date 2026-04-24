@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { Store, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { getAuthErrorMessage } from '../utils/authErrors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,13 +17,15 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Invalid credentials');
+
+      const message = getAuthErrorMessage(err.code);
+      setError(message);
     } finally {
       setLoading(false);
     }

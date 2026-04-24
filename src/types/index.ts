@@ -59,6 +59,8 @@ export interface Sale {
 }
 
 export interface InventoryItem {
+  isbn: string;
+  sellingPrice: any;
   id: string;
   productId: string;
   name: string;
