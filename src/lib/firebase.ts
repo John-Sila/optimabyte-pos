@@ -5,12 +5,12 @@ import { getFirestore } from 'firebase/firestore';
 // Fallback config to prevent crash if file is missing
 // The actual config is injected by set_up_firebase tool
 let config = {
-  apiKey: "API_KEY_HERE",
-  authDomain: "PROJECT_ID.firebaseapp.com",
-  projectId: "PROJECT_ID",
-  storageBucket: "PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID",
+  apiKey: "AIzaSyCz44x30JDvPMRDyzOcFktAyYN6arp4EV8",
+  authDomain: "pos-system-12348.firebaseapp.com",
+  projectId: "pos-system-12348",
+  storageBucket: "pos-system-12348.firebasestorage.app",
+  messagingSenderId: "587882286852",
+  appId: "1:587882286852:web:1bfeab58843f423085ca51",
   firestoreDatabaseId: "(default)"
 };
 
