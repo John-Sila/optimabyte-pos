@@ -118,7 +118,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Menu className="w-5 h-5" />
             </button>
             <h2 className="hidden md:block text-[10px] font-black text-slate-400 tracking-widest uppercase truncate max-w-xs">
-              Tenant: {company?.name}
+              {company?.name}
             </h2>
             <div className="hidden md:block h-4 w-px bg-slate-200"></div>
             <h1 className="text-lg font-bold text-slate-800 truncate">{currentPage}</h1>
