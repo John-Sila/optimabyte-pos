@@ -22,9 +22,11 @@ import {
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'motion/react';
+import { notify } from '../lib/toast';
 
 type Transaction = {
-  mvt: ReactNode;
+  [x: string]: string;
+  mvt: string;
   customerName: string;
   id: string;
   cashier: string;
@@ -105,11 +107,6 @@ export default function Dashboard() {
   const monthlySales = Number(stats.soldAmount?.[year]?.[month] || 0);
   const monthlyRevenue = Number(stats.revenues?.[year]?.[month] || 0);
 
-  const monthlySoldPieces = Number(stats.soldPieces?.[year]?.[month] || 0);
-  const monthlySoldAmount = Number(stats.soldAmount?.[year]?.[month] || 0);
-  const totalSales = Number(stats.totalSales || 0);
-  const totalRevenue = Number(stats.totalRevenue || 0);
-
   const cards = [
     {
       title: 'Items sold (This month)',
@@ -163,8 +160,12 @@ export default function Dashboard() {
     });
   };
 
+  const q = customerSearch.toLowerCase();
+
   const filteredTransactions = recentTransactions.filter((txn) =>
-    (txn.customerName || '').toLowerCase().includes(customerSearch.toLowerCase())
+    String(txn.customerName || '').toLowerCase().includes(q) ||
+    String(txn.mvt || '').toLowerCase().includes(q) ||
+    String(txn.items?.join(' ') || '').toLowerCase().includes(q)
   );
 
   return (
@@ -197,8 +198,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-
-
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-white">
             <div className="flex items-center justify-between gap-4">
@@ -208,7 +207,7 @@ export default function Dashboard() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search by customer..."
+                  placeholder="Customer, item or mvt ..."
                   className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm transition-all text-sm font-medium"
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
@@ -225,6 +224,7 @@ export default function Dashboard() {
                   <th className="px-6 py-3">Cashier</th>
                   <th className="px-6 py-3">Customer/Supplier</th>
                   <th className="px-6 py-3">Mvt</th>
+                  <th className="px-6 py-3">Count</th>
                   <th className="px-6 py-3">Items</th>
                   <th className="px-6 py-3">Amount</th>
                   <th className="px-6 py-3">Status</th>
@@ -238,14 +238,7 @@ export default function Dashboard() {
                       {txn.id || '-'}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
-                      {txn.cashier
-                        ?.toString()
-                        .trim()
-                        .split(/\s+/)
-                        .map((part, index, arr) =>
-                          index === 0 && arr.length > 1 ? `${part[0]}.` : part
-                        )
-                        .join(' ')}
+                      {txn.cashier}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
                       {txn.customerName || '-'}
@@ -256,9 +249,9 @@ export default function Dashboard() {
                           txn.mvt === 'Sales'
                             ? 'bg-green-100 text-green-700'
                             : txn.mvt === 'Purchases'
-                              ? 'bg-red-100 text-red-700'
+                              ? 'bg-orange-100 text-orange-700'
                               : txn.mvt === 'Production'
-                                ? 'bg-blue-100 text-blue-700'
+                                ? 'bg-blue-200 text-blue-800'
                                 : 'bg-slate-100 text-slate-700'
                         }`}
                       >
@@ -271,6 +264,9 @@ export default function Dashboard() {
                         ) : null}
                         {txn.mvt}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                      {txn.totalProducts || '-'}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium">
                       {txn.items?.length ? (
@@ -286,7 +282,7 @@ export default function Dashboard() {
                         '-'
                       )}
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-900">
+                    <td className="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">
                       {Number(txn.totalAmount) === 0
                         ? '-'
                         : `KES ${Number(txn.totalAmount).toLocaleString()}`}

@@ -67,6 +67,9 @@ export default function Production() {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [newCustomerName, setNewCustomerName] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [confirmType, setConfirmType] = useState<'complete' | 'delete' | null>(null);
+  const [confirmJob, setConfirmJob] = useState<ProductionTxn | null>(null);
+  const [confirmProcessing, setConfirmProcessing] = useState(false);
 
   useEffect(() => {
     if (!company) return;
@@ -105,11 +108,6 @@ export default function Production() {
       unsubCust();
     };
   }, [company]);
-
-  const filteredItems = inventoryItems.filter((item) =>
-    String(item.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(item.productId || '').toLowerCase().includes(search.toLowerCase())
-  );
 
   const activeJobs = jobs.filter((job) => job.status === 'Incomplete' && (job.mvt || 'Production') === 'Production');
   const historicalJobs = jobs.filter((job) => job.status === 'Completed' && (job.mvt || 'Production') === 'Production');
@@ -161,13 +159,12 @@ export default function Production() {
         grossAmount: 0,
         revenue: 0,
         items: [item.name],
-        customerId,
         customerName,
         status: 'Incomplete',
         mvt: 'Production',
         totalProducts: Number(amount),
         dateStarted: serverTimestamp(),
-        dateCompleted: null,
+        dateCompleted: serverTimestamp(),
         inventoryId: item.id,
         inventoryName: item.name,
       });
@@ -198,11 +195,15 @@ export default function Production() {
     }
   };
 
-  const completeJob = async (job: ProductionTxn) => {
+  const completeJob = async (job: ProductionTxn): Promise<void> => {
     if (!company || !job.id) return;
 
     try {
-      const invRef = doc(db, 'companies', company.id, 'inventory', String((job as any).inventoryId || ''));
+      const invId = String((job as any).inventoryId || '');
+      if (!invId) throw new Error('Inventory item missing');
+
+      const invRef = doc(db, 'companies', company.id, 'inventory', invId);
+      const jobRef = doc(db, 'companies', company.id, 'transactions', job.id);
 
       await runTransaction(db, async (transaction) => {
         const invSnap = await transaction.get(invRef);
@@ -216,7 +217,6 @@ export default function Production() {
           lastUpdated: serverTimestamp()
         });
 
-        const jobRef = doc(db, 'companies', company.id, 'transactions', job.id);
         transaction.update(jobRef, {
           status: 'Completed',
           dateCompleted: serverTimestamp()
@@ -229,8 +229,9 @@ export default function Production() {
     }
   };
 
-  const deleteJob = async (jobId: string) => {
-    if (!company) return;
+  const deleteJob = async (jobId: string): Promise<void> => {
+    if (!company || !jobId) return;
+
     try {
       await deleteDoc(doc(db, 'companies', company.id, 'transactions', jobId));
       setOpenMenuId(null);
@@ -357,6 +358,7 @@ export default function Production() {
                         </td>
                         <td className="px-6 py-4 text-right whitespace-nowrap relative">
                           <button
+                            onMouseEnter={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
                             onClick={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
                             className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
                           >
@@ -366,6 +368,7 @@ export default function Production() {
                           <AnimatePresence>
                             {openMenuId === job.id && (
                               <motion.div
+                                onMouseLeave={() => setOpenMenuId(null)}
                                 initial={{ opacity: 0, scale: 0.95, y: -6 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -6 }}
@@ -374,20 +377,31 @@ export default function Production() {
                               >
                                 {job.status !== 'Completed' && (
                                   <button
-                                    onClick={() => completeJob(job)}
+                                    onClick={() => {
+                                      setConfirmJob(job);
+                                      setConfirmType('complete');
+                                      setOpenMenuId(null);
+                                    }}
                                     className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition-colors"
                                   >
                                     <Check className="w-4 h-4" />
                                     Mark as complete
                                   </button>
                                 )}
+
                                 <button
-                                  onClick={() => deleteJob(job.id)}
+                                  onClick={() => {
+                                    setConfirmJob(job);
+                                    setConfirmType('delete');
+                                    setOpenMenuId(null);
+                                  }}
                                   className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                   Delete
                                 </button>
+
+
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -523,6 +537,110 @@ export default function Production() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* confirmation of creating a job/deleting */}
+      <AnimatePresence>
+        {confirmType && confirmJob && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/45 backdrop-blur-md"
+              onClick={() => !confirmProcessing && setConfirmType(null)}
+            />
+
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 18 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 18 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="relative w-full max-w-md rounded-3xl border border-white/30 bg-white/20 backdrop-blur-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent pointer-events-none" />
+
+              <div className="relative p-6">
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center border ${
+                      confirmType === 'delete'
+                        ? 'bg-red-500/15 border-red-200/50 text-red-600'
+                        : 'bg-emerald-500/15 border-emerald-200/50 text-emerald-600'
+                    }`}
+                  >
+                    {confirmType === 'delete' ? <Trash2 className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                  </div>
+
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      {confirmType === 'delete' ? 'Delete transaction?' : 'Mark as complete?'}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {confirmType === 'delete'
+                        ? `This will permanently remove transaction #${confirmJob.id.slice(0, 7)}.`
+                        : `This will complete transaction #${confirmJob.id.slice(0, 7)} and update inventory.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={confirmProcessing}
+                    onClick={() => setConfirmType(null)}
+                    className="px-4 py-2.5 rounded-xl border border-white/30 bg-white/20 text-slate-700 hover:bg-white/30 font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={confirmProcessing}
+                    onClick={async () => {
+                      if (!confirmJob) return;
+                      setConfirmProcessing(true);
+                      try {
+                        if (confirmType === 'complete') {
+                          await completeJob(confirmJob);
+                        } else if (confirmType === 'delete') {
+                          await deleteJob(confirmJob.id);
+                        }
+                        setConfirmType(null);
+                        setConfirmJob(null);
+                      } finally {
+                        setConfirmProcessing(false);
+                      }
+                    }}
+                    className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm active:scale-95 disabled:opacity-60 ${
+                      confirmType === 'delete'
+                        ? 'bg-red-500 text-white hover:bg-red-600'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {confirmProcessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : confirmType === 'delete' ? (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Confirm
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+
+
+
     </div>
   );
 }

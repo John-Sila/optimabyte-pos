@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Filter, AlertTriangle, Save, X, EllipsisVertical, Trash2, CirclePlus } from 'lucide-react';
+import { Package, Plus, Search, Filter, AlertTriangle, Save, X, EllipsisVertical, Trash2, CirclePlus, Loader2 } from 'lucide-react';
 import { collection, onSnapshot, where, getDocs, doc, setDoc, deleteDoc, updateDoc, increment, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +11,6 @@ type InventoryFormState = {
   name: string;
   productId: string;
   isbn: string;
-  quantity: string;
   reorderLevel: string;
   unitCost: string;
   sellingPrice: string;
@@ -27,15 +26,16 @@ export default function Inventory() {
   const [stockModalItem, setStockModalItem] = useState<InventoryItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<InventoryItem | null>(null);
   const [stockQty, setStockQty] = useState('');
+  const [stockPrice, setStockPrice] = useState('');
   const [stockSupplier, setStockSupplier] = useState('');
   const [newSupplierName, setNewSupplierName] = useState('');
   const [stockProcessing, setStockProcessing] = useState(false);
+  const [creatingItem, setCreatingItem] = useState(false);
   const [suppliers, setSuppliers] = useState<{ id: string; supplierName: string }[]>([]);
   const [form, setForm] = useState<InventoryFormState>({
     name: '',
     productId: '',
     isbn: '',
-    quantity: '',
     reorderLevel: '',
     unitCost: '',
     sellingPrice: '',
@@ -83,7 +83,6 @@ export default function Inventory() {
       name: '',
       productId: '',
       isbn: '',
-      quantity: '',
       reorderLevel: '',
       unitCost: '',
       sellingPrice: '',
@@ -96,6 +95,7 @@ export default function Inventory() {
     setOpenMenuId(null);
   };
 
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company) return;
@@ -103,7 +103,6 @@ export default function Inventory() {
     if (
       !form.name.trim() ||
       !form.productId.trim() ||
-      !form.quantity.trim() ||
       !form.reorderLevel.trim() ||
       !form.sellingPrice.trim() ||
       !form.unitCost.trim()
@@ -111,6 +110,11 @@ export default function Inventory() {
       notify.warning("You have missing fields")
       return
     };
+    if (Number(form.sellingPrice.trim()) < Number(form.unitCost.trim())) {
+      notify.warning("You are selling at a loss")
+      return
+    }
+    setCreatingItem(true)
 
     const name = form.name.trim().toLowerCase();
     const productId = form.productId.trim().toLowerCase();
@@ -145,7 +149,7 @@ export default function Inventory() {
       productId: form.productId.trim(),
       productIdLower: productId,
       isbn: form.isbn.trim() || 'N/A',
-      quantity: Number(form.quantity),
+      quantity: Number(0),
       reorderLevel: Number(form.reorderLevel),
       unitCost: Number(form.unitCost),
       sellingPrice: Number(form.sellingPrice),
@@ -153,23 +157,9 @@ export default function Inventory() {
     });
 
     setModalOpen(false);
+    setCreatingItem(false)
     notify.success(`${form.name.trim()} added successfully.`);
     resetForm();
-  };
-
-  const handleAddStock = async (itemId: string) => {
-    if (!company) return;
-    await updateDoc(doc(db, 'companies', company.id, 'inventory', itemId), {
-      quantity: increment(1),
-      lastUpdated: serverTimestamp()
-    });
-    setOpenMenuId(null);
-  };
-
-  const handleDelete = async (itemId: string) => {
-    if (!company) return;
-    await deleteDoc(doc(db, 'companies', company.id, 'inventory', itemId));
-    setOpenMenuId(null);
   };
 
   const lowStockCount = items.filter(item => item.quantity < item.reorderLevel).length;
@@ -372,6 +362,7 @@ export default function Inventory() {
                                 if (!qty || qty < 1) return;
 
                                 try {
+                                  notify.success('Adding stock...')
                                   setStockProcessing(true);
 
                                   const supplierName =
@@ -399,13 +390,12 @@ export default function Inventory() {
                                   await setDoc(txRef, {
                                     id: txId,
                                     cashier: user?.userName || 'System',
-                                    totalAmount: 0,
-                                    grossAmount: 0,
+                                    totalAmount: stockPrice,
+                                    grossAmount: stockPrice,
                                     revenue: 0,
                                     items: [stockModalItem.name],
-                                    customerId: supplierId,
                                     customerName: supplierName,
-                                    status: 'completed',
+                                    status: 'Completed',
                                     mvt: 'Purchases',
                                     totalProducts: qty,
                                     dateCompleted: serverTimestamp(),
@@ -422,12 +412,14 @@ export default function Inventory() {
                                     );
                                   }
 
+                                  notify.success('Process completed successfully')
                                   setStockModalItem(null);
                                   setStockQty('');
                                   setStockSupplier('');
                                   setNewSupplierName('');
                                 } catch (err) {
                                   console.error(err);
+                                  notify.error('We encountered a fatal error')
                                 } finally {
                                   setStockProcessing(false);
                                 }
@@ -439,6 +431,15 @@ export default function Inventory() {
                                 value={stockQty}
                                 onChange={(e) => setStockQty(e.target.value)}
                                 placeholder="Enter quantity to add"
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                                required
+                              />
+                              <input
+                                type="number"
+                                min="1"
+                                value={stockPrice}
+                                onChange={(e) => setStockPrice(e.target.value)}
+                                placeholder="Enter price"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
                                 required
                               />
@@ -572,15 +573,6 @@ export default function Inventory() {
                 />
                 <input
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
-                  placeholder="Quantity"
-                  type="number"
-                  min="0"
-                  value={form.quantity}
-                  onChange={(e) => setForm(prev => ({ ...prev, quantity: e.target.value }))}
-                  required
-                />
-                <input
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
                   placeholder="Reorder Level"
                   type="number"
                   min="0"
@@ -620,10 +612,20 @@ export default function Inventory() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm active:scale-95"
+                  disabled={creatingItem}
+                  className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" />
-                  Save Item
+                  {creatingItem ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Item
+                    </>
+                  )}
                 </button>
               </div>
             </form>

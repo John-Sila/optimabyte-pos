@@ -9,7 +9,8 @@ import {
   ShoppingCart,
   X,
   Save,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import {
   collection,
@@ -302,6 +303,7 @@ export default function Sales() {
           totalAmount: total,
           grossAmount,
           revenue,
+          totalProducts: Number(qtySold),
           items: cart.map(item => item.name),
           customerId: customerId || '',
           customerName,
@@ -344,6 +346,7 @@ export default function Sales() {
       console.error(err);
     } finally {
       setProcessing(false);
+      setShowSaveConfirm(false);
     }
   };
 
@@ -645,7 +648,6 @@ export default function Sales() {
                     type="button"
                     disabled={processing}
                     onClick={async () => {
-                      setShowSaveConfirm(false);
                       await handleSaveSale();
                     }}
                     className="px-8 py-3 bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
