@@ -42,7 +42,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white mb-6 shadow-lg shadow-blue-500/30">
             <Store className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">OmniRetail OS</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">OptimaPOS</h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 px-3 py-1 bg-slate-100 rounded-full inline-block">Authorized Entrance Only</p>
         </div>
 
