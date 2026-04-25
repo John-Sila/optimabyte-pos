@@ -306,7 +306,7 @@ export default function Sales() {
           customerId: customerId || '',
           customerName,
           status: 'completed',
-          mvt: "Out",
+          mvt: "Sales",
           dateCompleted: serverTimestamp()
         });
 
@@ -340,7 +340,7 @@ export default function Sales() {
       setNewCustomerName('');
       notify.success("Transaction completed.");
     } catch (err: any) {
-      notify.error(`An error occured. ${err?.message || err}`);
+      notify.error("We encountered a fatal error");
       console.error(err);
     } finally {
       setProcessing(false);

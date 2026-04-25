@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Search,
+  Clock3,
 } from 'lucide-react';
 import {
   collection,
@@ -199,22 +200,22 @@ export default function Dashboard() {
 
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-        <div className="p-5 border-b border-slate-100 bg-white">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="font-bold text-slate-800 tracking-tight">Recent Transactions</h3>
+          <div className="p-5 border-b border-slate-100 bg-white">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="font-bold text-slate-800 tracking-tight">Recent Transactions</h3>
 
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by customer..."
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm transition-all text-sm font-medium"
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-              />
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search by customer..."
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm transition-all text-sm font-medium"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
           <div className="flex-1 overflow-x-auto">
             <table className="w-full text-center">
@@ -222,7 +223,7 @@ export default function Dashboard() {
                 <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black tracking-widest border-b border-slate-100">
                   <th className="px-6 py-3">T-ID</th>
                   <th className="px-6 py-3">Cashier</th>
-                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Customer/Supplier</th>
                   <th className="px-6 py-3">Mvt</th>
                   <th className="px-6 py-3">Items</th>
                   <th className="px-6 py-3">Amount</th>
@@ -234,11 +235,7 @@ export default function Dashboard() {
                 {filteredTransactions.map((txn) => (
                   <tr key={txn.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 font-mono text-xs text-slate-900">
-                      {txn.id
-                      ? txn.id.length > 7
-                          ? `${txn.id.slice(0, 4)}...`
-                          : txn.id
-                        : '-'}
+                      {txn.id || '-'}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
                       {txn.cashier
@@ -251,26 +248,26 @@ export default function Dashboard() {
                         .join(' ')}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
-                      {txn.customerName
-                        ? txn.customerName.length > 7
-                          ? `${txn.customerName.slice(0, 7)}...`
-                          : txn.customerName
-                        : '-'}
+                      {txn.customerName || '-'}
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-900">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          txn.mvt === 'Out'
-                            ? 'bg-red-100 text-red-700'
-                            : txn.mvt === 'In'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-slate-100 text-slate-700'
+                          txn.mvt === 'Sales'
+                            ? 'bg-green-100 text-green-700'
+                            : txn.mvt === 'Purchases'
+                              ? 'bg-red-100 text-red-700'
+                              : txn.mvt === 'Production'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {txn.mvt === 'Out' ? (
-                          <ArrowDownRight className="w-3 h-3" />
-                        ) : txn.mvt === 'In' ? (
+                        {txn.mvt === 'Sales' ? (
                           <ArrowUpRight className="w-3 h-3" />
+                        ) : txn.mvt === 'Purchases' ? (
+                          <ArrowDownRight className="w-3 h-3" />
+                        ) : txn.mvt === 'Production' ? (
+                          <Clock3 className="w-3 h-3" />
                         ) : null}
                         {txn.mvt}
                       </span>
@@ -290,14 +287,22 @@ export default function Dashboard() {
                       )}
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-900">
-                      KES {Number(txn.totalAmount || 0).toLocaleString()}
+                      {Number(txn.totalAmount) === 0
+                        ? '-'
+                        : `KES ${Number(txn.totalAmount).toLocaleString()}`}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${getStatusStyle(txn.status)}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          txn.status === 'Incomplete'
+                            ? 'bg-red-100 text-red-700'
+                            : getStatusStyle(txn.status)
+                        }`}
+                      >
                         {txn.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-400 text-xs font-medium">
+                    <td className="px-6 py-4 text-slate-400 text-xs font-medium whitespace-nowrap">
                       {formatDate(txn.dateCompleted)}
                     </td>
                   </tr>

@@ -18,7 +18,7 @@ type InventoryFormState = {
 };
 
 export default function Inventory() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -27,6 +27,10 @@ export default function Inventory() {
   const [stockModalItem, setStockModalItem] = useState<InventoryItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<InventoryItem | null>(null);
   const [stockQty, setStockQty] = useState('');
+  const [stockSupplier, setStockSupplier] = useState('');
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [stockProcessing, setStockProcessing] = useState(false);
+  const [suppliers, setSuppliers] = useState<{ id: string; supplierName: string }[]>([]);
   const [form, setForm] = useState<InventoryFormState>({
     name: '',
     productId: '',
@@ -50,9 +54,20 @@ export default function Inventory() {
       setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
     });
 
+    const suppliersRef = collection(db, 'companies', company.id, 'suppliers');
+    const unsubscribeSup = onSnapshot(suppliersRef, (snap) => {
+      setSuppliers(
+        snap.docs.map((d) => ({
+          id: d.id,
+          supplierName: String(d.data().supplierName || '')
+        }))
+      );
+    });
+
     return () => {
       unsubscribeInv();
       unsubscribeProd();
+      unsubscribeSup();
     };
   }, [company]);
 
@@ -347,51 +362,138 @@ export default function Inventory() {
                                 </button>
                               </div>
 
-                              <form
-                                className="p-6 space-y-4"
-                                onSubmit={async (e) => {
-                                  e.preventDefault();
-                                  if (!company || !stockModalItem || !stockQty.trim()) return;
+                            <form
+                              className="p-6 space-y-4"
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                if (!company || !stockModalItem || !stockQty.trim() || !stockSupplier) return;
 
-                                  await updateDoc(
-                                    doc(db, 'companies', company.id, 'inventory', stockModalItem.id),
-                                    {
-                                      quantity: increment(Number(stockQty)),
-                                      lastUpdated: serverTimestamp()
-                                    }
-                                  );
+                                const qty = Number(stockQty);
+                                if (!qty || qty < 1) return;
+
+                                try {
+                                  setStockProcessing(true);
+
+                                  const supplierName =
+                                    stockSupplier === 'OTHER'
+                                      ? newSupplierName.trim().toUpperCase()
+                                      : (suppliers.find((s) => s.id === stockSupplier)?.supplierName || '').toUpperCase();
+
+                                  if (!supplierName) return;
+
+                                  const supplierId =
+                                    stockSupplier === 'OTHER'
+                                      ? supplierName.replace(/\s+/g, '_')
+                                      : stockSupplier;
+
+                                  const txId = Math.random().toString(36).slice(2, 12).toUpperCase();
+
+                                  const invRef = doc(db, 'companies', company.id, 'inventory', stockModalItem.id);
+                                  const txRef = doc(db, 'companies', company.id, 'transactions', txId);
+
+                                  await updateDoc(invRef, {
+                                    quantity: increment(qty),
+                                    lastUpdated: serverTimestamp()
+                                  });
+
+                                  await setDoc(txRef, {
+                                    id: txId,
+                                    cashier: user?.userName || 'System',
+                                    totalAmount: 0,
+                                    grossAmount: 0,
+                                    revenue: 0,
+                                    items: [stockModalItem.name],
+                                    customerId: supplierId,
+                                    customerName: supplierName,
+                                    status: 'completed',
+                                    mvt: 'Purchases',
+                                    totalProducts: qty,
+                                    dateCompleted: serverTimestamp(),
+                                  });
+
+                                  if (stockSupplier === 'OTHER') {
+                                    await setDoc(
+                                      doc(db, 'companies', company.id, 'suppliers', supplierId),
+                                      {
+                                        supplierName,
+                                        dateAdded: serverTimestamp()
+                                      },
+                                      { merge: true }
+                                    );
+                                  }
 
                                   setStockModalItem(null);
                                   setStockQty('');
-                                }}
-                              >
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={stockQty}
-                                  onChange={(e) => setStockQty(e.target.value)}
-                                  placeholder="Enter quantity to add"
+                                  setStockSupplier('');
+                                  setNewSupplierName('');
+                                } catch (err) {
+                                  console.error(err);
+                                } finally {
+                                  setStockProcessing(false);
+                                }
+                              }}
+                            >
+                              <input
+                                type="number"
+                                min="1"
+                                value={stockQty}
+                                onChange={(e) => setStockQty(e.target.value)}
+                                placeholder="Enter quantity to add"
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                                required
+                              />
+
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-bold text-slate-700 ml-1">Supplier</label>
+                                <select
+                                  value={stockSupplier}
+                                  onChange={(e) => setStockSupplier(e.target.value)}
                                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
                                   required
-                                />
+                                >
+                                  <option value="">Select supplier</option>
+                                  {suppliers.map((supplier) => (
+                                    <option key={supplier.id} value={supplier.id}>
+                                      {supplier.supplierName}
+                                    </option>
+                                  ))}
+                                  <option value="OTHER">OTHER</option>
+                                </select>
+                              </div>
 
-                                <div className="flex items-center justify-end gap-3 pt-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setStockModalItem(null)}
-                                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-all"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    type="submit"
-                                    className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm active:scale-95"
-                                  >
-                                    <Save className="w-4 h-4" />
-                                    Add Quantity
-                                  </button>
+                              {stockSupplier === 'OTHER' && (
+                                <div className="space-y-1.5">
+                                  <label className="text-sm font-bold text-slate-700 ml-1">New Supplier Name</label>
+                                  <input
+                                    type="text"
+                                    value={newSupplierName}
+                                    onChange={(e) => setNewSupplierName(e.target.value)}
+                                    placeholder="Enter supplier name"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                                    required
+                                  />
                                 </div>
-                              </form>
+                              )}
+
+                              <div className="flex items-center justify-end gap-3 pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setStockModalItem(null)}
+                                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-all"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={stockProcessing}
+                                  className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-60"
+                                >
+                                  <Save className="w-4 h-4" />
+                                  {stockProcessing ? 'Processing...' : 'Add Quantity'}
+                                </button>
+                              </div>
+                            </form>
+
                             </motion.div>
                           </div>
                         )}
@@ -413,6 +515,7 @@ export default function Inventory() {
         </div>
       </div>
 
+    {/* add inventory item */}
     <AnimatePresence>
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
@@ -529,6 +632,7 @@ export default function Inventory() {
       )}
     </AnimatePresence>
 
+    {/* delete inventory item */}
     <AnimatePresence>
       {deleteConfirmItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
