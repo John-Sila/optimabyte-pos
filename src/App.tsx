@@ -8,8 +8,9 @@ import Sales from './pages/Sales';
 import Inventory from './pages/Inventory';
 import Production from './pages/Production';
 import Users from './pages/Users';
-import Reports from './pages/Reports';
 import { Toaster } from 'sonner';
+import Analytics from './pages/Analytics';
+import Filtration from './pages/Filtration';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { firebaseUser, loading } = useAuth();
@@ -80,9 +81,14 @@ function App() {
               <Users />
             </ProtectedRoute>
           } />
-          <Route path="/reports" element={
+          <Route path="/analytics" element={
             <ProtectedRoute>
-              <Reports />
+              <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/filter" element={
+            <ProtectedRoute>
+              <Filtration />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/" />} />

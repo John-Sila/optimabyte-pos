@@ -86,12 +86,7 @@ function monthIndex(month: string) {
   return idx === -1 ? 99 : idx;
 }
 
-function formatMonthYear(month: string, year: string) {
-  const shortMonth = month.slice(0, 3);
-  return `${shortMonth} ${year}`;
-}
-
-export default function Reports() {
+export default function Analytics() {
   const { company } = useAuth();
   const [inventoryItems, setInventoryItems] = useState<InventoryDoc[]>([]);
   const [generalStats, setGeneralStats] = useState<GeneralStatsDoc | null>(null);
@@ -181,7 +176,6 @@ export default function Reports() {
   }, [chartRows]);
 
   const avgSaleValue = totalSales > 0 ? (totalRevenue / totalSales).toFixed(2) : '0.00';
-
   const bestCategory = categoryData[0]?.name || 'N/A';
 
   const peakRevenueMonth = useMemo(() => {
@@ -196,7 +190,7 @@ export default function Reports() {
   }, [generalStats]);
 
   const peakSalesMonth = useMemo(() => {
-  const points = flattenNestedMap(generalStats?.soldPieces);
+    const points = flattenNestedMap(generalStats?.soldPieces);
     if (!points.length) return 'N/A';
 
     const best = points.reduce((currentBest, point) => {
@@ -207,10 +201,12 @@ export default function Reports() {
   }, [generalStats]);
 
   const tooltipStyle = {
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-    fontSize: '12px'
+    borderRadius: '12px',
+    border: '1px solid rgb(226 232 240)',
+    boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.12)',
+    fontSize: '12px',
+    backgroundColor: '#ffffff',
+    color: '#0f172a'
   };
 
   const handleExportPdf = async () => {
@@ -221,7 +217,8 @@ export default function Reports() {
         totalSales,
         avgSaleValue,
         bestCategory,
-        peakMonth,
+        peakRevenueMonth,
+        peakSalesMonth,
         items: inventoryItems.length
       };
 
@@ -233,11 +230,13 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-black text-slate-800 tracking-tight">Business Intelligence</h2>
-          <p className="text-xs text-slate-500 font-medium tracking-tight">
+          <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+            Business Intelligence
+          </h2>
+          <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
             Financial performance and sales velocity metrics.
           </p>
         </div>
@@ -245,43 +244,54 @@ export default function Reports() {
           <button
             onClick={handleExportPdf}
             disabled={exporting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest border border-slate-800 hover:bg-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-60"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
-            <Download className="w-4 h-4 text-slate-400" />
+            <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
             {exporting ? 'Exporting...' : 'Export PDF'}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: 'Avg Sale Value', value: `$${avgSaleValue}`, icon: DollarSign, color: 'text-orange-500' },
           { label: 'Best Category', value: bestCategory, icon: ShoppingBag, color: 'text-blue-500' },
           { label: 'Peak Month (Revenue)', value: peakRevenueMonth, icon: TrendingUp, color: 'text-emerald-500' },
           { label: 'Peak Month (Product)', value: peakSalesMonth, icon: TrendingUp, color: 'text-purple-500' }
         ].map((stat) => (
-          <div key={stat.label} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className={`${stat.color} opacity-40`}>
+          <div
+            key={stat.label}
+            className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className={`${stat.color} opacity-60`}>
               <stat.icon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{stat.label}</p>
-              <p className="text-xl font-black text-slate-900 leading-tight">{stat.value}</p>
+              <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-slate-400 dark:text-slate-500">
+                {stat.label}
+              </p>
+              <p className="text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
+                {stat.value}
+              </p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-500" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <TrendingUp className="w-4 h-4 text-blue-500 dark:text-blue-400" />
             Revenue vs Sales
           </h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
@@ -289,21 +299,39 @@ export default function Reports() {
                   tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
                   dy={10}
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                />
                 <Tooltip contentStyle={tooltipStyle} />
-                <Line type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={3} dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="sales" stroke="#94a3b8" strokeWidth={3} dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#94a3b8"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <PieIcon className="w-4 h-4 text-blue-500" />
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <PieIcon className="w-4 h-4 text-blue-500 dark:text-blue-400" />
             Category Mix
           </h3>
-          <div className="h-72 w-full flex items-center">
+          <div className="flex h-72 w-full items-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -326,9 +354,11 @@ export default function Reports() {
             <div className="space-y-3 pr-4">
               {categoryData.map((cat, i) => (
                 <div key={cat.name} className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="text-[11px] font-bold text-slate-700 truncate max-w-[80px]">{cat.name}</span>
-                  <span className="text-[10px] font-mono text-slate-400 ml-auto">
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
+                  <span className="max-w-[80px] truncate text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    {cat.name}
+                  </span>
+                  <span className="ml-auto font-mono text-[10px] text-slate-400 dark:text-slate-500">
                     {categoryTotal > 0 ? ((cat.value / categoryTotal) * 100).toFixed(0) : 0}%
                   </span>
                 </div>
@@ -337,14 +367,20 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Performance Matrix</h3>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2 dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-100 bg-slate-50/30 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
+              Performance Matrix
+            </h3>
           </div>
           <div className="h-72 w-full p-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
@@ -352,7 +388,11 @@ export default function Reports() {
                   tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
                   dy={10}
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="sales" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={24} />
                 <Bar dataKey="revenue" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={24} />

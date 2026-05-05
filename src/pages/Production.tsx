@@ -75,21 +75,13 @@ export default function Production() {
     if (!company) return;
 
     const prodRef = collection(db, 'companies', company.id, 'transactions');
-    const unsubProd = onSnapshot(
-      query(prodRef, orderBy('dateStarted', 'desc')),
-      (snap) => {
-        setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionTxn)));
-      }
-    );
+    const unsubProd = onSnapshot(query(prodRef, orderBy('dateStarted', 'desc')), (snap) => {
+      setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionTxn)));
+    });
 
     const invRef = collection(db, 'companies', company.id, 'inventory');
     const unsubInv = onSnapshot(invRef, (snap) => {
-      setInventoryItems(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data()
-        }))
-      );
+      setInventoryItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     const custRef = collection(db, 'companies', company.id, 'customers');
@@ -134,7 +126,7 @@ export default function Production() {
     if (!company || !canCreate) return;
 
     setProcessing(true);
-    notify.success("Creating production batch...");
+    notify.success('Creating production batch...');
     try {
       const saleId = Math.random().toString(36).slice(2, 12).toUpperCase();
       const item = inventoryItems.find((x) => x.id === selectedItem);
@@ -181,14 +173,14 @@ export default function Production() {
         );
       }
 
-      notify.success("New job created");
+      notify.success('New job created');
       setShowNewJob(false);
       setSelectedItem('');
       setAmount('');
       setSelectedCustomer('');
       setNewCustomerName('');
     } catch (err: any) {
-      notify.error("We encountered a fatal error");
+      notify.error('We encountered a fatal error');
       console.error(err);
     } finally {
       setProcessing(false);
@@ -241,57 +233,59 @@ export default function Production() {
   };
 
   return (
-    <div className="space-y-6 h-full">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="h-full space-y-6 text-slate-900 dark:text-slate-100">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-black text-slate-800 tracking-tight">Production Monitor</h2>
-          <p className="text-xs text-slate-500 font-medium tracking-tight">
+          <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+            Production Monitor
+          </h2>
+          <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
             Batch processing and automated manufacturing runs.
           </p>
         </div>
 
         <button
           onClick={openNewJob}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transform active:scale-95 transition-all shadow-sm shadow-blue-500/20"
+          className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm shadow-blue-500/20 transition-all active:scale-95 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
         >
           <Plus className="w-4 h-4" />
           New Job
         </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 w-full">
-        <div className="xl:col-span-4 space-y-4 w-full">
-          <div className="flex items-center gap-6 pb-0 border-b border-slate-100">
+      <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-4">
+        <div className="xl:col-span-4 w-full space-y-4">
+          <div className="flex items-center gap-6 border-b border-slate-100 pb-0 dark:border-slate-800">
             <button
               onClick={() => setActiveTab('active')}
-              className={`pb-3 px-1 text-[10px] font-black uppercase tracking-widest transition-all relative ${
-                activeTab === 'active' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+              className={`relative px-1 pb-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'active' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               Active Batches
-              {activeTab === 'active' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />}
+              {activeTab === 'active' && <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-blue-600 dark:bg-blue-400" />}
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`pb-3 px-1 text-[10px] font-black uppercase tracking-widest transition-all relative ${
-                activeTab === 'history' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+              className={`relative px-1 pb-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               Historical Logs
-              {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />}
+              {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-blue-600 dark:bg-blue-400" />}
             </button>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden w-full">
-            <div className="p-4 border-b border-slate-100">
+          <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="border-b border-slate-100 p-4 dark:border-slate-800">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Search className="absolute left-4 top-1/2 w-4 h-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <input
                   type="text"
                   placeholder="Search by item or customer..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm transition-all text-sm font-medium"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
                 />
               </div>
             </div>
@@ -299,7 +293,7 @@ export default function Production() {
             <div className="w-full overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black tracking-widest border-b border-slate-100">
+                  <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500">
                     <th className="px-6 py-3">T-ID</th>
                     <th className="px-6 py-3">Cashier</th>
                     <th className="px-6 py-3">Items</th>
@@ -310,7 +304,7 @@ export default function Production() {
                     <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 text-sm">
+                <tbody className="divide-y divide-slate-50 text-sm dark:divide-slate-800">
                   {(activeTab === 'active' ? activeJobs : historicalJobs)
                     .filter((job) => {
                       const q = search.toLowerCase();
@@ -320,14 +314,14 @@ export default function Production() {
                       );
                     })
                     .map((job) => (
-                      <tr key={job.id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-xs text-slate-900 whitespace-nowrap">
+                      <tr key={job.id} className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-slate-900 dark:text-slate-100">
                           {job.id.slice(0, 7)}
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
                           {job.cashier}
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">
+                        <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
                           <div className="flex flex-col leading-tight">
                             {job.items?.slice(0, 2).map((item, index) => (
                               <span key={index}>{item}</span>
@@ -335,32 +329,33 @@ export default function Production() {
                             {job.items && job.items.length > 2 && <span>...</span>}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
                           {job.customerName || '-'}
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                               job.status === 'Completed'
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                : 'bg-orange-100 text-orange-700 border-orange-200'
+                                ? 'border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                : 'border-orange-200 bg-orange-100 text-orange-700 dark:border-orange-900/60 dark:bg-orange-500/10 dark:text-orange-300'
                             }`}
                           >
                             {job.status === 'Completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {job.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-900 font-black whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4 font-black text-slate-900 dark:text-slate-100">
                           {job.totalProducts || '-'}
                         </td>
-                        <td className="px-6 py-4 text-slate-400 text-xs font-medium whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4 text-xs font-medium text-slate-400 dark:text-slate-500">
                           {job.dateStarted?.toDate?.().toLocaleString?.() || '-'}
                         </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap relative">
+                        <td className="relative whitespace-nowrap px-6 py-4 text-right">
                           <button
+                            type="button"
                             onMouseEnter={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
                             onClick={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
-                            className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
@@ -373,16 +368,17 @@ export default function Production() {
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -6 }}
                                 transition={{ duration: 0.15 }}
-                                className="absolute right-6 top-10 z-30 w-44 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden"
+                                className="absolute right-6 top-10 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
                               >
                                 {job.status !== 'Completed' && (
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setConfirmJob(job);
                                       setConfirmType('complete');
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition-colors"
+                                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
                                   >
                                     <Check className="w-4 h-4" />
                                     Mark as complete
@@ -390,18 +386,17 @@ export default function Production() {
                                 )}
 
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setConfirmJob(job);
                                     setConfirmType('delete');
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-t border-slate-100"
+                                  className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                   Delete
                                 </button>
-
-
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -417,7 +412,7 @@ export default function Production() {
                     );
                   }).length === 0) && (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-slate-300 italic text-sm">
+                      <td colSpan={8} className="px-6 py-12 text-center text-sm italic text-slate-300 dark:text-slate-500">
                         No production jobs found.
                       </td>
                     </tr>
@@ -425,10 +420,8 @@ export default function Production() {
                 </tbody>
               </table>
             </div>
-
           </div>
         </div>
-
       </div>
 
       <AnimatePresence>
@@ -446,22 +439,25 @@ export default function Production() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <h3 className="text-xl font-bold text-gray-900">New Production Job</h3>
-                <button onClick={() => setShowNewJob(false)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors">
-                  <X className="w-6 h-6 text-gray-400" />
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-8 py-6 dark:border-slate-800 dark:bg-slate-950/40">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">New Production Job</h3>
+                <button
+                  onClick={() => setShowNewJob(false)}
+                  className="rounded-xl p-2 transition-colors hover:bg-gray-200 dark:hover:bg-slate-800"
+                >
+                  <X className="w-6 h-6 text-gray-400 dark:text-slate-400" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-6">
+              <div className="space-y-6 p-8">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-gray-700 ml-1">Item</label>
+                  <label className="ml-1 text-sm font-bold text-gray-700 dark:text-slate-300">Item</label>
                   <select
                     value={selectedItem}
                     onChange={(e) => setSelectedItem(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-slate-900 outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-orange-400 dark:focus:ring-orange-400/20"
                   >
                     <option value="">Select item</option>
                     {inventoryItems.map((item) => (
@@ -473,23 +469,23 @@ export default function Production() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-gray-700 ml-1">Total Products</label>
+                  <label className="ml-1 text-sm font-bold text-gray-700 dark:text-slate-300">Total Products</label>
                   <input
                     type="number"
                     min="1"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-slate-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-orange-400 dark:focus:ring-orange-400/20"
                     placeholder="Enter quantity"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-gray-700 ml-1">Customer</label>
+                  <label className="ml-1 text-sm font-bold text-gray-700 dark:text-slate-300">Customer</label>
                   <select
                     value={selectedCustomer}
                     onChange={(e) => setSelectedCustomer(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-slate-900 outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-orange-400 dark:focus:ring-orange-400/20"
                   >
                     <option value="">Select customer</option>
                     <option value="WAREHOUSE">WAREHOUSE</option>
@@ -504,22 +500,22 @@ export default function Production() {
 
                 {selectedCustomer === 'OTHER' && (
                   <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700 ml-1">New Customer Name</label>
+                    <label className="ml-1 text-sm font-bold text-gray-700 dark:text-slate-300">New Customer Name</label>
                     <input
                       type="text"
                       value={newCustomerName}
                       onChange={(e) => setNewCustomerName(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-slate-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-orange-400 dark:focus:ring-orange-400/20"
                       placeholder="Enter customer name"
                     />
                   </div>
                 )}
 
-                <div className="pt-4 flex items-center justify-end gap-3">
+                <div className="flex items-center justify-end gap-3 pt-4">
                   <button
                     type="button"
                     onClick={() => setShowNewJob(false)}
-                    className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="rounded-xl px-6 py-3 font-bold text-gray-500 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
@@ -527,7 +523,7 @@ export default function Production() {
                     type="button"
                     onClick={createProductionJob}
                     disabled={!canCreate}
-                    className="px-8 py-3 bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50 dark:bg-orange-500 dark:hover:bg-orange-400"
                   >
                     {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Job'}
                   </button>
@@ -538,7 +534,6 @@ export default function Production() {
         )}
       </AnimatePresence>
 
-      {/* confirmation of creating a job/deleting */}
       <AnimatePresence>
         {confirmType && confirmJob && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6">
@@ -555,27 +550,25 @@ export default function Production() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.94, opacity: 0, y: 18 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="relative w-full max-w-md rounded-3xl border border-white/30 bg-white/20 backdrop-blur-2xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent pointer-events-none" />
-
               <div className="relative p-6">
                 <div className="flex items-start gap-4">
                   <div
-                    className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center border ${
+                    className={`shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl border ${
                       confirmType === 'delete'
-                        ? 'bg-red-500/15 border-red-200/50 text-red-600'
-                        : 'bg-emerald-500/15 border-emerald-200/50 text-emerald-600'
+                        ? 'border-red-200 bg-red-500/15 text-red-600 dark:border-red-900/60 dark:bg-red-500/10 dark:text-red-300'
+                        : 'border-emerald-200 bg-emerald-500/15 text-emerald-600 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-300'
                     }`}
                   >
                     {confirmType === 'delete' ? <Trash2 className="w-5 h-5" /> : <Check className="w-5 h-5" />}
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                    <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
                       {confirmType === 'delete' ? 'Delete transaction?' : 'Mark as complete?'}
                     </h3>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                       {confirmType === 'delete'
                         ? `This will permanently remove transaction #${confirmJob.id.slice(0, 7)}.`
                         : `This will complete transaction #${confirmJob.id.slice(0, 7)} and update inventory.`}
@@ -588,7 +581,7 @@ export default function Production() {
                     type="button"
                     disabled={confirmProcessing}
                     onClick={() => setConfirmType(null)}
-                    className="px-4 py-2.5 rounded-xl border border-white/30 bg-white/20 text-slate-700 hover:bg-white/30 font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
@@ -611,7 +604,7 @@ export default function Production() {
                         setConfirmProcessing(false);
                       }
                     }}
-                    className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm active:scale-95 disabled:opacity-60 ${
+                    className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-widest shadow-sm transition-all active:scale-95 disabled:opacity-60 ${
                       confirmType === 'delete'
                         ? 'bg-red-500 text-white hover:bg-red-600'
                         : 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -637,10 +630,6 @@ export default function Production() {
           </div>
         )}
       </AnimatePresence>
-
-
-
-
     </div>
   );
 }

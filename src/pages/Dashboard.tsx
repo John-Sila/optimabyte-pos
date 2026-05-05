@@ -34,6 +34,7 @@ type Transaction = {
   items: string[];
   status: string;
   dateCompleted?: Timestamp;
+  totalProducts?: number;
 };
 
 type MonthlyStats = {
@@ -43,6 +44,7 @@ type MonthlyStats = {
   totalSales?: number;
   totalRevenue?: number;
   noOfUsers?: number;
+  revenues?: Record<string, Record<string, number>>;
 };
 
 export default function Dashboard() {
@@ -113,41 +115,49 @@ export default function Dashboard() {
       value: monthlyBagsSold.toLocaleString(),
       icon: ShoppingCart,
       trend: 'Live',
-      color: 'text-emerald-500',
-      trendColor: 'text-emerald-600 bg-emerald-50'
+      color: 'emerald',
+      gradient: 'from-emerald-500 to-emerald-600'
     },
     {
       title: 'Total Sales',
       value: `KES ${monthlySales.toLocaleString()}`,
       icon: DollarSign,
       trend: 'Live',
-      color: 'text-blue-500',
-      trendColor: 'text-blue-600 bg-blue-50'
+      color: 'blue',
+      gradient: 'from-blue-500 to-blue-600'
     },
     {
       title: 'Total Revenue',
       value: `KES ${monthlyRevenue.toLocaleString()}`,
       icon: TrendingUp,
       trend: 'Live',
-      color: 'text-orange-500',
-      trendColor: 'text-orange-600 bg-orange-50'
+      color: 'orange',
+      gradient: 'from-orange-500 to-orange-600'
     },
     {
       title: 'Total Users',
       value: usersCount.toLocaleString(),
       icon: UsersIcon,
       trend: 'Live',
-      color: 'text-purple-500',
-      trendColor: 'text-purple-600 bg-purple-50'
+      color: 'violet',
+      gradient: 'from-violet-500 to-violet-600'
     },
   ];
 
   const getStatusStyle = (status: string) => {
     const s = status?.toLowerCase();
-    if (s === 'completed') return 'bg-emerald-100 text-emerald-700';
-    if (s === 'pending') return 'bg-orange-100 text-orange-700';
-    if (s === 'cancelled' || s === 'failed') return 'bg-red-100 text-red-700';
-    return 'bg-slate-100 text-slate-700';
+    if (s === 'completed') return 'bg-emerald/10 text-emerald-700 border border-emerald/20';
+    if (s === 'pending') return 'bg-orange/10 text-orange-700 border border-orange/20';
+    if (s === 'cancelled' || s === 'failed') return 'bg-red/10 text-red-700 border border-red/20';
+    return 'bg-slate/10 text-slate-500 border border-slate/20';
+  };
+
+  const getMvtStyle = (mvt: string) => {
+    const m = mvt?.toLowerCase();
+    if (m === 'sales') return 'bg-emerald/10 text-emerald-700 border border-emerald/20';
+    if (m === 'purchases') return 'bg-orange/10 text-orange-700 border border-orange/20';
+    if (m === 'production') return 'bg-blue/10 text-blue-700 border border-blue/20';
+    return 'bg-slate/10 text-slate-500 border border-slate/20';
   };
 
   const formatDate = (value?: Timestamp) => {
@@ -161,7 +171,6 @@ export default function Dashboard() {
   };
 
   const q = customerSearch.toLowerCase();
-
   const filteredTransactions = recentTransactions.filter((txn) =>
     String(txn.customerName || '').toLowerCase().includes(q) ||
     String(txn.mvt || '').toLowerCase().includes(q) ||
@@ -169,154 +178,180 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="space-y-6 animate-fade-in">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {cards.map((card, i) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                  {card.title}
-                </p>
-                <div className={`${card.color} opacity-40`}>
-                  <card.icon className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-2xl font-black text-slate-900 leading-tight">{card.value}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${card.trendColor}`}>
-                  {card.trend}
-                </span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-          <div className="p-5 border-b border-slate-100 bg-white">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="font-bold text-slate-800 tracking-tight">Recent Transactions</h3>
-
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Customer, item or mvt ..."
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm transition-all text-sm font-medium"
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                />
+    <div className="space-y-8">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {cards.map((card, i) => (
+          <motion.div
+            key={card.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.5 }}
+            whileHover={{ y: -4, scale: 1.02 }}
+            className="group relative bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-lg hover:shadow-2xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/30 transition-all duration-300"
+          >
+            {/* Colored accent ring */}
+            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300 blur-xl`} />
+            
+            <div className="relative z-10 flex items-start justify-between mb-4">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">
+                {card.title}
+              </p>
+              <div className={`p-2 rounded-xl bg-${card.color}-500/10 group-hover:bg-${card.color}-500/20 backdrop-blur-sm border border-${card.color}-200/30 dark:border-${card.color}-800/30 transition-all duration-300`}>
+                <card.icon className={`w-5 h-5 text-${card.color}-500 group-hover:scale-110 transition-transform duration-200`} />
               </div>
             </div>
-          </div>
-
-          <div className="flex-1 overflow-x-auto">
-            <table className="w-full text-center">
-              <thead>
-                <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black tracking-widest border-b border-slate-100">
-                  <th className="px-6 py-3">T-ID</th>
-                  <th className="px-6 py-3">Cashier</th>
-                  <th className="px-6 py-3">Customer/Supplier</th>
-                  <th className="px-6 py-3">Mvt</th>
-                  <th className="px-6 py-3">Count</th>
-                  <th className="px-6 py-3">Items</th>
-                  <th className="px-6 py-3">Amount</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 text-sm">
-                {filteredTransactions.map((txn) => (
-                  <tr key={txn.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-900">
-                      {txn.id || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
-                      {txn.cashier}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
-                      {txn.customerName || '-'}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-900">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          txn.mvt === 'Sales'
-                            ? 'bg-green-100 text-green-700'
-                            : txn.mvt === 'Purchases'
-                              ? 'bg-orange-100 text-orange-700'
-                              : txn.mvt === 'Production'
-                                ? 'bg-blue-200 text-blue-800'
-                                : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {txn.mvt === 'Sales' ? (
-                          <ArrowUpRight className="w-3 h-3" />
-                        ) : txn.mvt === 'Purchases' ? (
-                          <ArrowDownRight className="w-3 h-3" />
-                        ) : txn.mvt === 'Production' ? (
-                          <Clock3 className="w-3 h-3" />
-                        ) : null}
-                        {txn.mvt}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
-                      {txn.totalProducts || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium">
-                      {txn.items?.length ? (
-                        <div className="flex flex-col">
-                          {txn.items.slice(0, 2).map((item, index) => (
-                            <span key={index} className="whitespace-nowrap">
-                              {item}
-                            </span>
-                          ))}
-                          {txn.items.length > 2 && <span>...</span>}
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">
-                      {Number(txn.totalAmount) === 0
-                        ? '-'
-                        : `KES ${Number(txn.totalAmount).toLocaleString()}`}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          txn.status === 'Incomplete'
-                            ? 'bg-red-100 text-red-700'
-                            : getStatusStyle(txn.status)
-                        }`}
-                      >
-                        {txn.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-xs font-medium whitespace-nowrap">
-                      {formatDate(txn.dateCompleted)}
-                    </td>
-                  </tr>
-                ))}
-
-                {filteredTransactions.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-300 italic text-sm">
-                      No transactions yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            
+            <p className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent leading-tight">
+              {card.value}
+            </p>
+            
+            <div className="flex items-center gap-2 mt-3">
+              <motion.span 
+                className={`text-xs font-black px-3 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm`}
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2 }}
+                whileHover={{ scale: 1.05 }}
+              >
+                <span className={`text-${card.color}-600 dark:text-${card.color}-400 font-black tracking-wide`}>
+                  {card.trend}
+                </span>
+              </motion.span>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
+      {/* Recent Transactions Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-xl shadow-slate-200/30 dark:shadow-slate-900/20 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-white/50 to-slate-50/50 dark:from-slate-900/50 dark:to-slate-950/50">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-black bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 dark:from-slate-100 dark:to-slate-50 bg-clip-text text-transparent tracking-tight">
+                Recent Transactions
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                {filteredTransactions.length} of {recentTransactions.length} transactions
+              </p>
+            </div>
+
+            {/* Search */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search customer, item or movement..."
+                className="w-full pl-11 pr-4 py-3 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-400 dark:text-slate-500 text-xs uppercase font-black tracking-widest border-b border-slate-200/50 dark:border-slate-800/50">
+                <th className="px-6 py-4 text-left">T-ID</th>
+                <th className="px-6 py-4 text-left">Cashier</th>
+                <th className="px-6 py-4 text-left">Customer</th>
+                <th className="px-6 py-4 text-left">Movement</th>
+                <th className="px-6 py-4 text-left">Count</th>
+                <th className="px-6 py-4 text-left">Items</th>
+                <th className="px-6 py-4 text-right">Amount</th>
+                <th className="px-6 py-4 text-left">Status</th>
+                <th className="px-6 py-4 text-left">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
+              {filteredTransactions.map((txn, index) => (
+                <motion.tr 
+                  key={txn.id} 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + index * 0.05 }}
+                  className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all duration-200 border-b border-slate-200/30 dark:border-slate-800/30 last:border-b-0"
+                >
+                  <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                    {txn.id?.slice(-8).toUpperCase() || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
+                    {txn.cashier || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700 text-sm dark:text-slate-300 font-medium max-w-[160px] truncate">
+                    {txn.customerName || '-'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider backdrop-blur-sm shadow-sm ${getMvtStyle(txn.mvt)}`}>
+                      {txn.mvt === 'Sales' ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : txn.mvt === 'Purchases' ? (
+                        <ArrowDownRight className="w-3 h-3" />
+                      ) : txn.mvt === 'Production' ? (
+                        <Clock3 className="w-3 h-3" />
+                      ) : null}
+                      {txn.mvt}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-bold">
+                    {txn.totalProducts || '-'}
+                  </td>
+                  <td className="px-6 py-4 max-w-[200px]">
+                    {txn.items?.length ? (
+                      <div className="space-y-0.5">
+                        {txn.items.slice(0, 2).map((item, i) => (
+                          <span key={i} className="inline-block bg-slate-100/50 dark:bg-slate-800/50 px-2 py-0.5 rounded text-xs text-slate-700 dark:text-slate-300">
+                            {item}
+                          </span>
+                        ))}
+                        {txn.items.length > 2 && (
+                          <span className="text-slate-400 text-xs">+{txn.items.length - 2}</span>
+                        )}
+                      </div>
+                    ) : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-right font-bold whitespace-nowrap">
+                    <div className="flex flex-col items-end">
+                      <span className="text-slate-900 dark:text-slate-100">
+                        {Number(txn.totalAmount) === 0 ? '-' : `KES ${Number(txn.totalAmount).toLocaleString()}`}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider backdrop-blur-sm shadow-sm ${getStatusStyle(txn.status)}`}>
+                      {txn.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-[11px] font-medium whitespace-nowrap">
+                    {formatDate(txn.dateCompleted)}
+                  </td>
+                </motion.tr>
+              ))}
+
+              {filteredTransactions.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-6 py-20 text-center">
+                    <div className="text-slate-400 dark:text-slate-500 space-y-2">
+                      <Search className="w-12 h-12 mx-auto opacity-30" />
+                      <p className="text-lg font-medium">No transactions match your search</p>
+                      <p className="text-sm">Try adjusting your search terms</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
     </div>
   );
 }
