@@ -14,8 +14,6 @@ import {
 import {
   Download,
   TrendingUp,
-  DollarSign,
-  ShoppingBag,
   Filter,
   Users,
   CalendarRange,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import SystemLoadingBar from '../components/LoadingScreen';
 
 type NestedStats = Record<string, Record<string, number>>;
 
@@ -254,8 +253,11 @@ export default function Filtration() {
 
   if (loading) {
     return (
-      <div className="p-6 text-sm text-slate-600 dark:text-slate-300">
-        Loading analytics...
+      <div className="p-6">
+        <div className="mb-4 text-sm font-medium text-slate-600 dark:text-slate-300">
+          Loading analytics...
+        </div>
+        <SystemLoadingBar active={loading} />
       </div>
     );
   }

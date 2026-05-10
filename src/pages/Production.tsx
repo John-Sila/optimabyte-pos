@@ -570,8 +570,8 @@ export default function Production() {
                     </h3>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                       {confirmType === 'delete'
-                        ? `This will permanently remove transaction #${confirmJob.id.slice(0, 7)}.`
-                        : `This will complete transaction #${confirmJob.id.slice(0, 7)} and update inventory.`}
+                        ? `This will permanently remove transaction ${confirmJob.id.slice(0, 7)}.`
+                        : `This will complete transaction ${confirmJob.id.slice(0, 7)} and update inventory.`}
                     </p>
                   </div>
                 </div>

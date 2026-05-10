@@ -218,7 +218,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </span>
               <span className="text-sm text-emerald-500/90 flex items-center gap-1.5 font-black tracking-wide bg-emerald-500/10 px-2 py-0.5 rounded-full backdrop-blur-sm">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                PRODUCTION READY
+                OPTIMABYTE
               </span>
             </div>
 
