@@ -75,11 +75,19 @@ export default function Sales() {
 
   const filteredInventory = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return inventory;
-    return inventory.filter(item =>
-      item.name?.toLowerCase().includes(q) ||
-      item.productId?.toLowerCase().includes(q)
-    );
+
+    return inventory
+      .filter((item) => {
+        const category = item.category || 'Sales';
+        return category === 'Sales';
+      })
+      .filter((item) => {
+        if (!q) return true;
+        return (
+          item.name?.toLowerCase().includes(q) ||
+          item.productId?.toLowerCase().includes(q)
+        );
+      });
   }, [inventory, search]);
 
 
@@ -364,8 +372,8 @@ export default function Sales() {
 
 
   return (
-    <div className="h-[calc(100vh-160px)] flex gap-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="h-screen flex gap-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         <div className="mb-6 space-y-3">
           <div className="relative">
             <select
@@ -405,7 +413,7 @@ export default function Sales() {
           />
         </div>
 
-        <div className="flex-1 overflow-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-1">
+        <div className="h-full overflow-y-auto grid auto-rows-max grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-1 content-start">
           {filteredInventory.map(item => (
             <button
               key={item.id}
@@ -446,47 +454,86 @@ export default function Sales() {
         </div>
       </div>
 
-      <div className="w-80 shrink-0 flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-        <div className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+      <div className="w-80 shrink-0 flex flex-col h-full overflow-hidden rounded-2xl border bg-white shadow-sm border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+
+        {/* Header / Identity Layer */}
+        <div className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-2">
+
           <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
             <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             Current Receipt
           </h2>
+
+          {/* Customer Context (Reactive Identity Layer) */}
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <span className="font-bold text-slate-700 dark:text-slate-200">
+              Customer:
+            </span>{' '}
+
+            {selectedCustomer === '' && (
+              <span className="italic text-slate-400">Not selected</span>
+            )}
+
+            {selectedCustomer && selectedCustomer !== 'OTHER' && (
+              <span className="text-slate-700 dark:text-slate-200">
+                {customers.find(c => c.id === selectedCustomer)?.customerName || 'Unknown'}
+              </span>
+            )}
+
+            {selectedCustomer === 'OTHER' && (
+              <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                {newCustomerName?.trim() || 'Typing new customer...'}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 space-y-3">
+        {/* Items Layer */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
           {cart.map(item => (
-            <div key={item.itemId} className="group flex items-center gap-3">
+            <div
+              key={item.itemId}
+              className="group flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/40 p-2 dark:border-slate-800 dark:bg-slate-950/30"
+            >
+
+              {/* Item Info */}
               <div className="min-w-0 flex-1">
-                <h4 className="truncate text-sm font-bold leading-tight text-slate-900 dark:text-slate-100">
+                <h4 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                   {item.name}
                 </h4>
+
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                  KES {item.unitPrice.toLocaleString()} x {item.quantity}
+                  KES {item.unitPrice.toLocaleString()} × {item.quantity}
                 </p>
               </div>
 
+              {/* Quantity Control */}
               <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
+
                 <button
-                  onClick={() => changeCartQty(item.itemId, -10)}
-                  className="rounded-md p-1 transition-colors hover:bg-white dark:hover:bg-slate-700"
+                  onClick={() => changeCartQty(item.itemId, -1)}
+                  className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
                 >
                   <Minus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
                 </button>
+
                 <span className="w-6 text-center text-xs font-bold text-slate-800 dark:text-slate-100">
                   {item.quantity}
                 </span>
+
                 <button
-                  onClick={() => changeCartQty(item.itemId, 10)}
-                  className="rounded-md p-1 transition-colors hover:bg-white dark:hover:bg-slate-700"
+                  onClick={() => changeCartQty(item.itemId, 1)}
+                  className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
                 >
                   <Plus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
                 </button>
               </div>
 
+              {/* Remove */}
               <button
                 onClick={() => removeCartItem(item.itemId)}
-                className="p-2 text-slate-300 transition-colors hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                className="opacity-40 hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 dark:hover:text-red-400"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -494,54 +541,67 @@ export default function Sales() {
           ))}
 
           {cart.length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center space-y-3 text-slate-300 opacity-50 dark:text-slate-600">
+            <div className="flex h-full flex-col items-center justify-center space-y-3 text-slate-300 opacity-60 dark:text-slate-600">
               <ShoppingCart className="w-8 h-8" />
-              <p className="text-xs font-bold uppercase tracking-widest">Empty Receipt</p>
+              <p className="text-xs font-bold uppercase tracking-widest">
+                Empty Receipt
+              </p>
             </div>
           )}
         </div>
 
-        <div className="space-y-2 border-t border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-950/40">
-          <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+        {/* Financial Summary Layer */}
+        <div className="border-t border-slate-200 bg-slate-50/70 p-5 space-y-2 dark:border-slate-800 dark:bg-slate-950/40">
+
+          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>Subtotal</span>
             <span>KES {subtotal.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+
+          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>Tax (16%)</span>
             <span>KES {tax.toLocaleString()}</span>
           </div>
-          <div className="mt-2 flex justify-between border-t border-dashed border-slate-300 pt-2 text-xl font-black text-slate-900 dark:border-slate-700 dark:text-slate-100">
+
+          <div className="flex justify-between border-t border-dashed border-slate-300 pt-2 text-lg font-black text-slate-900 dark:border-slate-700 dark:text-slate-100">
             <span>Total</span>
             <span>KES {total.toLocaleString()}</span>
           </div>
+        </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+        {/* Actions Layer */}
+        <div className="border-t border-slate-200 bg-white p-4 space-y-3 dark:border-slate-800 dark:bg-slate-900">
+
+          <div className="grid grid-cols-2 gap-3">
+
             <button
               onClick={clearReceipt}
               disabled={cart.length === 0}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 transition-all disabled:opacity-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
             >
               <Trash2 className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">Clear</span>
+              Clear
             </button>
 
             <button
               disabled={!canSave}
               onClick={() => setShowSaveConfirm(true)}
-              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 p-3 text-white transition-all shadow-sm shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 p-3 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-blue-700 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Save</span>
+              Save
             </button>
+
           </div>
 
           <button
             disabled={cart.length === 0 || processing}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 transition-all hover:border-blue-600 hover:text-blue-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400 dark:hover:text-blue-400"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider transition-all hover:border-blue-600 hover:text-blue-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400 dark:hover:text-blue-400"
           >
             <Sparkles className="w-4 h-4" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Prompt Payment</span>
+            Prompt Payment
           </button>
+
         </div>
       </div>
 
@@ -565,56 +625,76 @@ export default function Sales() {
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
             >
-              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Add Item</h3>
-                  <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">{selectedItem.name}</p>
-                </div>
-                <button
-                  onClick={() => {
+              {/* Escape key listener wrapper */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
                     setSelectedItem(null);
                     setQtyInput('');
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4 p-6">
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Available: <span className="font-bold text-slate-800 dark:text-slate-100">{selectedItem.quantity}</span>
-                </div>
-
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedItem.quantity}
-                  value={qtyInput}
-                  onChange={(e) => setQtyInput(e.target.value)}
-                  className="w-full rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                  placeholder="Enter quantity"
-                />
-
-                <div className="flex items-center justify-end gap-3 pt-2">
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div>
+                    <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Add Item</h3>
+                    <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">{selectedItem.name}</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedItem(null);
                       setQtyInput('');
                     }}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addToCart}
-                    className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
-                  >
-                    Add
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Form wrapper catches Enter key naturally */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addToCart();
+                  }}
+                  className="space-y-4 p-6"
+                >
+                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    Available: <span className="font-bold text-slate-800 dark:text-slate-100">{selectedItem.quantity}</span>
+                  </div>
+
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedItem.quantity}
+                    value={qtyInput}
+                    onChange={(e) => setQtyInput(e.target.value)}
+                    // Blurs the input on scroll to prevent unexpected value changes
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="w-full rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+                    placeholder="Enter quantity"
+                    autoFocus
+                  />
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedItem(null);
+                        setQtyInput('');
+                      }}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </form>
               </div>
             </motion.div>
           </div>

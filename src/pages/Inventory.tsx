@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Package,
   Plus,
@@ -23,11 +23,11 @@ import {
   deleteDoc,
   updateDoc,
   increment,
-  servertimestamp,
   query,
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
+import { createPortal } from 'react-dom';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { InventoryItem, Product } from '../types';
@@ -41,7 +41,102 @@ type InventoryFormState = {
   reorderLevel: string;
   unitCost: string;
   sellingPrice: string;
+  category: '' | 'Sales' | 'Production' | 'Warehouse';
 };
+
+type MenuPosition = {
+  x: number;
+  y: number;
+  flip: boolean; // true = open upward
+};
+
+// Floating context menu rendered via portal so it never affects table layout
+function FloatingMenu({
+  item,
+  position,
+  onClose,
+  onAddStock,
+  onAddPhoto,
+  onDelete,
+}: {
+  item: InventoryItem;
+  position: MenuPosition;
+  onClose: () => void;
+  onAddStock: () => void;
+  onAddPhoto: () => void;
+  onDelete: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  // Close on scroll
+  useEffect(() => {
+    const handle = () => onClose();
+    window.addEventListener('scroll', handle, true);
+    return () => window.removeEventListener('scroll', handle, true);
+  }, [onClose]);
+
+  const MENU_HEIGHT = 132; // approximate px height of 3 items
+
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    right: `${window.innerWidth - position.x}px`,
+    ...(position.flip
+      ? { bottom: `${window.innerHeight - position.y}px` }
+      : { top: `${position.y}px` }),
+    zIndex: 9999,
+  };
+
+  return createPortal(
+    <div ref={menuRef} style={style} onMouseLeave={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: position.flip ? 6 : -6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: position.flip ? 6 : -6 }}
+        transition={{ duration: 0.12 }}
+        className="w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
+      >
+        <button
+          type="button"
+          onClick={() => { onClose(); onAddStock(); }}
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          <CirclePlus className="w-4 h-4" />
+          Add stock
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { onClose(); onAddPhoto(); }}
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800"
+        >
+          <Camera className="w-4 h-4" />
+          Add Photo
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { onClose(); onDelete(); }}
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10 border-t border-slate-100 dark:border-slate-800"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete item
+        </button>
+      </motion.div>
+    </div>,
+    document.body
+  );
+}
 
 export default function Inventory() {
   const { company, user } = useAuth();
@@ -49,7 +144,7 @@ export default function Inventory() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setModalOpen] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuState, setMenuState] = useState<{ item: InventoryItem; position: MenuPosition } | null>(null);
   const [stockModalItem, setStockModalItem] = useState<InventoryItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<InventoryItem | null>(null);
   const [photoConfirmItem, setPhotoConfirmItem] = useState<InventoryItem | null>(null);
@@ -71,6 +166,7 @@ export default function Inventory() {
     reorderLevel: '',
     unitCost: '',
     sellingPrice: '',
+    category: ''
   });
 
   useEffect(() => {
@@ -111,33 +207,36 @@ export default function Inventory() {
     : items;
 
   const resetForm = () => {
-    setForm({
-      name: '',
-      productId: '',
-      isbn: '',
-      reorderLevel: '',
-      unitCost: '',
-      sellingPrice: '',
-    });
+    setForm({ name: '', productId: '', isbn: '', reorderLevel: '', unitCost: '', sellingPrice: '', category: '' });
   };
 
   const handleOpenModal = () => {
     resetForm();
     setModalOpen(true);
-    setOpenMenuId(null);
+    setMenuState(null);
   };
+
+  const handleMenuOpen = useCallback((e: React.MouseEvent, item: InventoryItem) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const MENU_HEIGHT = 132;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const flip = spaceBelow < MENU_HEIGHT + 16;
+
+    setMenuState({
+      item,
+      position: {
+        x: rect.right,
+        y: flip ? rect.top : rect.bottom + 4,
+        flip,
+      },
+    });
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company) return;
 
-    if (
-      !form.name.trim() ||
-      !form.productId.trim() ||
-      !form.reorderLevel.trim() ||
-      !form.sellingPrice.trim() ||
-      !form.unitCost.trim()
-    ) {
+    if (!form.name.trim() || !form.productId.trim() || !form.reorderLevel.trim() || !form.sellingPrice.trim() || !form.unitCost.trim()) {
       notify.warning('You have missing fields');
       return;
     }
@@ -152,12 +251,9 @@ export default function Inventory() {
     const productId = form.productId.trim().toLowerCase();
     const inventoryRef = collection(db, 'companies', company.id, 'inventory');
 
-    const duplicateQuery = query(inventoryRef, where('nameLower', '==', name));
-    const duplicateIdQuery = query(inventoryRef, where('productIdLower', '==', productId));
-
     const [nameSnap, idSnap] = await Promise.all([
-      getDocs(duplicateQuery),
-      getDocs(duplicateIdQuery)
+      getDocs(query(inventoryRef, where('nameLower', '==', name))),
+      getDocs(query(inventoryRef, where('productIdLower', '==', productId)))
     ]);
 
     if (!nameSnap.empty || !idSnap.empty) {
@@ -167,17 +263,17 @@ export default function Inventory() {
     }
 
     const newDocRef = doc(inventoryRef);
-
     await setDoc(newDocRef, {
       name: form.name.trim(),
       nameLower: name,
       productId: form.productId.trim(),
       productIdLower: productId,
       isbn: form.isbn.trim() || 'N/A',
-      quantity: Number(0),
+      quantity: 0,
       reorderLevel: Number(form.reorderLevel),
       unitCost: Number(form.unitCost),
       sellingPrice: Number(form.sellingPrice),
+      category: form.category.trim(),
       lastUpdated: serverTimestamp()
     });
 
@@ -190,16 +286,12 @@ export default function Inventory() {
   const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Create preview URL
-    const previewUrl = URL.createObjectURL(file);
     setSelectedPhotoFile(file);
-    setPhotoPreview(previewUrl);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const handleConfirmPhotoUpload = async () => {
     if (!selectedPhotoFile || !photoConfirmItem) return;
-
     await uploadPhoto(selectedPhotoFile, photoConfirmItem);
   };
 
@@ -207,81 +299,53 @@ export default function Inventory() {
     setSelectedPhotoFile(null);
     setPhotoPreview(null);
     setPhotoConfirmItem(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const uploadPhoto = async (file: File, item: InventoryItem) => {
     if (!company) return;
-
     setUploadingPhoto(true);
-
     try {
       const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
       const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-        throw new Error("Cloudinary environment variables not configured");
-      }
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) throw new Error('Cloudinary env vars not configured');
 
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || 'Cloudinary upload failed');
 
-      if (!res.ok) {
-        console.error("Cloudinary error:", data);
-        throw new Error(data?.error?.message || "Cloudinary upload failed");
-      }
-
-      const inventoryRef = doc(db, 'companies', company.id, 'inventory', item.id);
-      await updateDoc(inventoryRef, {
+      await updateDoc(doc(db, 'companies', company.id, 'inventory', item.id), {
         photoURL: data.secure_url,
         lastUpdated: serverTimestamp()
       });
 
-      notify.success("Photo uploaded successfully");
-      setOpenMenuId(null);
+      notify.success('Photo uploaded successfully');
       handleCancelPhotoUpload();
     } catch (err) {
       console.error(err);
-      notify.error(err instanceof Error ? err.message : "Failed to upload photo");
+      notify.error(err instanceof Error ? err.message : 'Failed to upload photo');
     } finally {
       setUploadingPhoto(false);
     }
   };
 
   const lowStockCount = items.filter(item => item.quantity < item.reorderLevel).length;
-
-  const inventoryValue = items.reduce((total, item) => {
-    return total + (Number(item.quantity) * Number(item.sellingPrice || 0));
-  }, 0);
+  const inventoryValue = items.reduce((total, item) => total + (Number(item.quantity) * Number(item.sellingPrice || 0)), 0);
 
   return (
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={handlePhotoSelect}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePhotoSelect} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-            Inventory Monitor
-          </h2>
+          <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">Inventory Monitor</h2>
           <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
             Track stock levels and reorder points for all catalog products.
           </p>
@@ -303,44 +367,24 @@ export default function Inventory() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-lg bg-red-500 p-2.5 text-white">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
+          <div className="rounded-lg bg-red-500 p-2.5 text-white"><AlertTriangle className="w-5 h-5" /></div>
           <div>
-            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Low Stock Alerts
-            </div>
-            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">
-              {lowStockCount} Items
-            </div>
+            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Low Stock Alerts</div>
+            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">{lowStockCount} Items</div>
           </div>
         </div>
-
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-lg bg-emerald-500 p-2.5 text-white">
-            <Package className="w-5 h-5" />
-          </div>
+          <div className="rounded-lg bg-emerald-500 p-2.5 text-white"><Package className="w-5 h-5" /></div>
           <div>
-            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Total SKUs
-            </div>
-            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">
-              {items.length} Products
-            </div>
+            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Total SKUs</div>
+            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">{items.length} Products</div>
           </div>
         </div>
-
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-lg bg-blue-500 p-2.5 text-white">
-            <Save className="w-5 h-5" />
-          </div>
+          <div className="rounded-lg bg-blue-500 p-2.5 text-white"><Save className="w-5 h-5" /></div>
           <div>
-            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Inventory Value
-            </div>
-            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">
-              ${inventoryValue.toLocaleString()}
-            </div>
+            <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Inventory Value</div>
+            <div className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100">${inventoryValue.toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -380,23 +424,13 @@ export default function Inventory() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {item.photoURL && (
-                        <img
-                          src={item.photoURL}
-                          alt={item.name}
-                          className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
-                        />
+                        <img src={item.photoURL} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
                       )}
-                      <span className="block font-bold leading-tight text-slate-800 dark:text-slate-100">
-                        {item.name}
-                      </span>
+                      <span className="block font-bold leading-tight text-slate-800 dark:text-slate-100">{item.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                    {item.productId}
-                  </td>
-                  <td className="px-6 py-4 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    {item.isbn || 'N/A'}
-                  </td>
+                  <td className="px-6 py-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">{item.productId}</td>
+                  <td className="px-6 py-4 text-[11px] font-medium text-slate-500 dark:text-slate-400">{item.isbn || 'N/A'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <span className={`text-base font-black ${item.quantity <= item.reorderLevel ? 'text-red-500' : 'text-slate-900 dark:text-slate-100'}`}>
@@ -410,83 +444,26 @@ export default function Inventory() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    {item.reorderLevel} units
-                  </td>
-                  <td className="px-6 py-4 font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    ${Number(item.unitCost || 0).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    ${Number(item.sellingPrice || 0).toLocaleString()}
-                  </td>
+                  <td className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{item.reorderLevel} units</td>
+                  <td className="px-6 py-4 font-bold tracking-tight text-slate-900 dark:text-slate-100">${Number(item.unitCost || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 font-bold tracking-tight text-slate-900 dark:text-slate-100">${Number(item.sellingPrice || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                    {item.lastUpdated?.toDate().toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {item.lastUpdated?.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="relative px-6 py-4">
-                    <div className="relative inline-flex">
-                      <button
-                        type="button"
-                        onMouseEnter={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                        className="text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
-                      >
-                        <EllipsisVertical className="w-4 h-4" />
-                      </button>
-
-                      {openMenuId === item.id && (
-                        <div
-                          className="absolute right-full top-0 z-20 mr-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
-                          onMouseLeave={() => setOpenMenuId(null)}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setStockModalItem(item);
-                              setStockQty('');
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                          >
-                            <CirclePlus className="w-4 h-4" />
-                            Add stock
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setPhotoConfirmItem(item);
-                              setSelectedPhotoFile(null);
-                              setPhotoPreview(null);
-                              if (fileInputRef.current) {
-                                fileInputRef.current.value = '';
-                              }
-                              fileInputRef.current?.click();
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800"
-                          >
-                            <Camera className="w-4 h-4" />
-                            Add Photo
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setDeleteConfirmItem(item);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10 border-t border-slate-100 dark:border-slate-800"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Delete item
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onMouseEnter={(e) => {
+                        if (menuState?.item.id === item.id) {
+                          setMenuState(null);
+                        } else {
+                          handleMenuOpen(e, item);
+                        }
+                      }}
+                      className="text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                    >
+                      <EllipsisVertical className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -501,11 +478,33 @@ export default function Inventory() {
           </table>
         </div>
       </div>
-      
+
+      {/* Floating context menu */}
+      <AnimatePresence>
+        {menuState && (
+          <FloatingMenu
+            item={menuState.item}
+            position={menuState.position}
+            onClose={() => setMenuState(null)}
+            onAddStock={() => { setStockModalItem(menuState.item); setStockQty(''); }}
+            onAddPhoto={() => {
+              setPhotoConfirmItem(menuState.item);
+              setSelectedPhotoFile(null);
+              setPhotoPreview(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+              fileInputRef.current?.click();
+            }}
+            onDelete={() => setDeleteConfirmItem(menuState.item)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Add Inventory Item Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+            
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -514,159 +513,191 @@ export default function Inventory() {
               onClick={() => setModalOpen(false)}
             />
 
+            {/* Modal */}
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
-                    Add Inventory Item
-                  </h3>
-                  <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
-                    Fill in all required fields to create a new stock record.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setModalOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              {/* Escape key listener wrapper */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setModalOpen(false);
+                  }
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div>
+                    <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
+                      Add Inventory Item
+                    </h3>
+                    <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
+                      Fill in all required fields to create a new stock record.
+                    </p>
+                  </div>
 
-              <form onSubmit={handleSave} className="space-y-4 p-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="Product Name"
-                    value={form.name}
-                    onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                    required
-                  />
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="SKU / Product ID"
-                    value={form.productId}
-                    onChange={(e) => setForm(prev => ({ ...prev, productId: e.target.value }))}
-                    required
-                  />
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="ISBN (optional)"
-                    value={form.isbn}
-                    onChange={(e) => setForm(prev => ({ ...prev, isbn: e.target.value }))}
-                  />
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="Reorder Level"
-                    type="number"
-                    min="0"
-                    value={form.reorderLevel}
-                    onChange={(e) => setForm(prev => ({ ...prev, reorderLevel: e.target.value }))}
-                    required
-                  />
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="Unit Cost"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.unitCost}
-                    onChange={(e) => setForm(prev => ({ ...prev, unitCost: e.target.value }))}
-                    required
-                  />
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="Selling Price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.sellingPrice}
-                    onChange={(e) => setForm(prev => ({ ...prev, sellingPrice: e.target.value }))}
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creatingItem}
-                    className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
-                  >
-                    {creatingItem ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        Save Item
-                      </>
-                    )}
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-              </form>
+
+                {/* Form */}
+                <form onSubmit={handleSave} className="space-y-4 p-6">
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                    <input
+                      className="input"
+                      placeholder="Product Name"
+                      value={form.name}
+                      onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                      autoFocus
+                    />
+
+                    <input
+                      className="input"
+                      placeholder="SKU / Product ID"
+                      value={form.productId}
+                      onChange={(e) => setForm(prev => ({ ...prev, productId: e.target.value }))}
+                      required
+                    />
+
+                    <input
+                      className="input"
+                      placeholder="ISBN (optional)"
+                      value={form.isbn}
+                      onChange={(e) => setForm(prev => ({ ...prev, isbn: e.target.value }))}
+                    />
+
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      placeholder="Reorder Level"
+                      value={form.reorderLevel}
+                      onChange={(e) => setForm(prev => ({ ...prev, reorderLevel: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      required
+                    />
+
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Unit Cost"
+                      value={form.unitCost}
+                      onChange={(e) => setForm(prev => ({ ...prev, unitCost: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      required
+                    />
+
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Selling Price"
+                      value={form.sellingPrice}
+                      onChange={(e) => setForm(prev => ({ ...prev, sellingPrice: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      required
+                    />
+
+                    {/* Category Dropdown */}
+                    <select
+                      className="input"
+                      value={form.category}
+                      onChange={(e) =>
+                        setForm(prev => ({
+                          ...prev,
+                          category: e.target.value as InventoryFormState['category']
+                        }))
+                      }
+                      required
+                    >
+                      <option value="" disabled>
+                        Select Category
+                      </option>
+                      <option value="Sales">Sales</option>
+                      <option value="Production">Production</option>
+                      <option value="Warehouse">Warehouse</option>
+                    </select>
+
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-2">
+
+                    <button
+                      type="button"
+                      onClick={() => setModalOpen(false)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={creatingItem}
+                      className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
+                    >
+                      {creatingItem ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Save Item
+                        </>
+                      )}
+                    </button>
+
+                  </div>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Delete Inventory Item Modal */}
+      {/* Delete Confirm Modal */}
       <AnimatePresence>
         {deleteConfirmItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
               onClick={() => setDeleteConfirmItem(null)}
             />
-
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-5 dark:border-slate-800 dark:bg-slate-950/40">
                 <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
-                    Delete Item
-                  </h3>
+                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Delete Item</h3>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                     Are you sure you want to delete{' '}
-                    <span className="font-bold text-slate-700 dark:text-slate-200">
-                      {deleteConfirmItem.name}
-                    </span>
-                    ?
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{deleteConfirmItem.name}</span>?
                   </p>
                 </div>
-                <button
-                  onClick={() => setDeleteConfirmItem(null)}
-                  className="rounded-xl p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
+                <button onClick={() => setDeleteConfirmItem(null)} className="rounded-xl p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                   <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                 </button>
               </div>
-
               <div className="flex items-center justify-end gap-3 p-6">
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmItem(null)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
+                <button type="button" onClick={() => setDeleteConfirmItem(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
                   Cancel
                 </button>
                 <button
@@ -693,306 +724,186 @@ export default function Inventory() {
         {stockModalItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
               onClick={() => setStockModalItem(null)}
             />
-
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
-                    Add Stock
-                  </h3>
-                  <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
-                    {stockModalItem.name}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStockModalItem(null)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form
-                className="space-y-4 p-6"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!company || !stockModalItem || !stockQty.trim() || !stockSupplier) return;
-
-                  const qty = Number(stockQty);
-                  if (!qty || qty < 1) return;
-
-                  try {
-                    setStockProcessing(true);
-                    notify.success('Adding stock...');
-
-                    const supplierName =
-                      stockSupplier === 'OTHER'
-                        ? newSupplierName.trim().toUpperCase()
-                        : (suppliers.find((s) => s.id === stockSupplier)?.supplierName || '').toUpperCase();
-
-                    if (!supplierName) return;
-
-                    const supplierId =
-                      stockSupplier === 'OTHER'
-                        ? supplierName.replace(/\s+/g, '_')
-                        : stockSupplier;
-
-                    const txId = Math.random().toString(36).slice(2, 12).toUpperCase();
-                    const invRef = doc(db, 'companies', company.id, 'inventory', stockModalItem.id);
-                    const txRef = doc(db, 'companies', company.id, 'transactions', txId);
-
-                    await updateDoc(invRef, {
-                      quantity: increment(qty),
-                      lastUpdated: serverTimestamp()
-                    });
-
-                    await setDoc(txRef, {
-                      id: txId,
-                      cashier: user?.userName || 'System',
-                      totalAmount: Number(stockPrice),
-                      grossAmount: Number(stockPrice),
-                      revenue: 0,
-                      items: [stockModalItem.name],
-                      customerName: supplierName,
-                      status: 'Completed',
-                      mvt: 'Purchases',
-                      totalProducts: qty,
-                      dateCompleted: serverTimestamp(),
-                    });
-
-                    if (stockSupplier === 'OTHER') {
-                      await setDoc(
-                        doc(db, 'companies', company.id, 'suppliers', supplierId),
-                        {
-                          supplierName,
-                          dateAdded: serverTimestamp()
-                        },
-                        { merge: true }
-                      );
-                    }
-
-                    notify.success('Process completed successfully');
+              {/* Escape key listener wrapper */}
+              <div
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
                     setStockModalItem(null);
-                    setStockQty('');
-                    setStockPrice('');
-                    setStockSupplier('');
-                    setNewSupplierName('');
-                  } catch (err) {
-                    console.error(err);
-                    notify.error('We encountered a fatal error');
-                  } finally {
-                    setStockProcessing(false);
                   }
                 }}
               >
-                <input
-                  type="number"
-                  min="1"
-                  value={stockQty}
-                  onChange={(e) => setStockQty(e.target.value)}
-                  placeholder="Enter quantity to add"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                  required
-                />
-
-                <input
-                  type="number"
-                  min="1"
-                  value={stockPrice}
-                  onChange={(e) => setStockPrice(e.target.value)}
-                  placeholder="Enter price"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                  required
-                />
-
-                <div className="space-y-1.5">
-                  <label className="ml-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Supplier
-                  </label>
-                  <select
-                    value={stockSupplier}
-                    onChange={(e) => setStockSupplier(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    required
-                  >
-                    <option value="">Select supplier</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.supplierName}
-                      </option>
-                    ))}
-                    <option value="OTHER">OTHER</option>
-                  </select>
-                </div>
-
-                {stockSupplier === 'OTHER' && (
-                  <div className="space-y-1.5">
-                    <label className="ml-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                      New Supplier Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newSupplierName}
-                      onChange={(e) => setNewSupplierName(e.target.value)}
-                      placeholder="Enter supplier name"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                      required
-                    />
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div>
+                    <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Add Stock</h3>
+                    <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">{stockModalItem.name}</p>
                   </div>
-                )}
-
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setStockModalItem(null)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={stockProcessing}
-                    className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
-                  >
-                    <Save className="w-4 h-4" />
-                    {stockProcessing ? 'Processing...' : 'Add Quantity'}
+                  <button type="button" onClick={() => setStockModalItem(null)} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-              </form>
+                
+                <form
+                  className="space-y-4 p-6"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!company || !stockModalItem || !stockQty.trim() || !stockSupplier) return;
+                    const qty = Number(stockQty);
+                    if (!qty || qty < 1) return;
+                    try {
+                      setStockProcessing(true);
+                      notify.success('Adding stock...');
+                      const supplierName = stockSupplier === 'OTHER'
+                        ? newSupplierName.trim().toUpperCase()
+                        : (suppliers.find((s) => s.id === stockSupplier)?.supplierName || '').toUpperCase();
+                      if (!supplierName) return;
+                      const supplierId = stockSupplier === 'OTHER' ? supplierName.replace(/\s+/g, '_') : stockSupplier;
+                      const txId = Math.random().toString(36).slice(2, 12).toUpperCase();
+                      await updateDoc(doc(db, 'companies', company.id, 'inventory', stockModalItem.id), {
+                        quantity: increment(qty),
+                        lastUpdated: serverTimestamp()
+                      });
+                      await setDoc(doc(db, 'companies', company.id, 'transactions', txId), {
+                        id: txId,
+                        cashier: user?.userName || 'System',
+                        totalAmount: Number(stockPrice),
+                        grossAmount: Number(stockPrice),
+                        revenue: 0,
+                        items: [stockModalItem.name],
+                        customerName: supplierName,
+                        status: 'Completed',
+                        mvt: 'Purchases',
+                        totalProducts: qty,
+                        dateCompleted: serverTimestamp(),
+                      });
+                      if (stockSupplier === 'OTHER') {
+                        await setDoc(doc(db, 'companies', company.id, 'suppliers', supplierId), { supplierName, dateAdded: serverTimestamp() }, { merge: true });
+                      }
+                      notify.success('Process completed successfully');
+                      setStockModalItem(null);
+                      setStockQty('');
+                      setStockPrice('');
+                      setStockSupplier('');
+                      setNewSupplierName('');
+                    } catch (err) {
+                      console.error(err);
+                      notify.error('We encountered a fatal error');
+                    } finally {
+                      setStockProcessing(false);
+                    }
+                  }}
+                >
+                  <input 
+                    type="number" 
+                    min="1" 
+                    value={stockQty} 
+                    onChange={(e) => setStockQty(e.target.value)} 
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="Enter quantity to add" 
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20" 
+                    required 
+                    autoFocus
+                  />
+                  <input 
+                    type="number" 
+                    min="1" 
+                    value={stockPrice} 
+                    onChange={(e) => setStockPrice(e.target.value)} 
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="Enter price" 
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20" 
+                    required 
+                  />
+                  
+                  <div className="space-y-1.5">
+                    <label className="ml-1 text-sm font-bold text-slate-700 dark:text-slate-300">Supplier</label>
+                    <select value={stockSupplier} onChange={(e) => setStockSupplier(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-400/20" required>
+                      <option value="">Select supplier</option>
+                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.supplierName}</option>)}
+                      <option value="OTHER">OTHER</option>
+                    </select>
+                  </div>
+                  
+                  {stockSupplier === 'OTHER' && (
+                    <div className="space-y-1.5">
+                      <label className="ml-1 text-sm font-bold text-slate-700 dark:text-slate-300">New Supplier Name</label>
+                      <input type="text" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} placeholder="Enter supplier name" className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20" required />
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onClick={() => setStockModalItem(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Cancel</button>
+                    <button type="submit" disabled={stockProcessing} className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">
+                      <Save className="w-4 h-4" />
+                      {stockProcessing ? 'Processing...' : 'Add Quantity'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Photo Upload Confirmation Modal with Preview */}
+      {/* Photo Upload Modal */}
       <AnimatePresence>
         {photoConfirmItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
               onClick={handleCancelPhotoUpload}
             />
-
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-5 dark:border-slate-800 dark:bg-slate-950/40">
                 <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
-                    {photoPreview ? 'Confirm Photo' : 'Add Photo'}
-                  </h3>
+                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">{photoPreview ? 'Confirm Photo' : 'Add Photo'}</h3>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    {photoPreview
-                      ? 'Review the photo below before uploading'
-                      : `Select an image for ${photoConfirmItem.name}`}
+                    {photoPreview ? 'Review the photo below before uploading' : `Select an image for ${photoConfirmItem.name}`}
                   </p>
                 </div>
-                <button
-                  onClick={handleCancelPhotoUpload}
-                  className="rounded-xl p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
+                <button onClick={handleCancelPhotoUpload} className="rounded-xl p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                   <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                 </button>
               </div>
-
               <div className="p-6">
                 {!photoPreview ? (
-                  // State: No photo selected yet
                   <div className="flex flex-col items-center justify-center gap-4">
                     <div className="flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800">
                       <Camera className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                     </div>
-                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">
-                      Click below to select an image file (JPG, PNG, or WebP)
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                      className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
-                    >
-                      <Camera className="w-4 h-4" />
-                      Select Image
+                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">Click below to select an image file (JPG, PNG, or WebP)</p>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto} className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">
+                      <Camera className="w-4 h-4" />Select Image
                     </button>
                   </div>
                 ) : (
-                  // State: Photo selected, show preview
                   <div className="flex flex-col items-center gap-4">
                     <div className="relative w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-                      <img
-                        src={photoPreview}
-                        alt="Preview"
-                        className="w-full h-64 object-cover"
-                      />
+                      <img src={photoPreview} alt="Preview" className="w-full h-64 object-cover" />
                     </div>
-                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">
-                      Is this the photo you want to use?
-                    </p>
+                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">Is this the photo you want to use?</p>
                     <div className="flex items-center gap-3 w-full">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPhotoFile(null);
-                          setPhotoPreview(null);
-                          if (fileInputRef.current) {
-                            fileInputRef.current.value = '';
-                          }
-                          fileInputRef.current?.click();
-                        }}
-                        disabled={uploadingPhoto}
-                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        Change
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleConfirmPhotoUpload}
-                        disabled={uploadingPhoto}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
-                      >
-                        {uploadingPhoto ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            Upload
-                          </>
-                        )}
+                      <button type="button" onClick={() => { setSelectedPhotoFile(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; fileInputRef.current?.click(); }} disabled={uploadingPhoto} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Change</button>
+                      <button type="button" onClick={handleConfirmPhotoUpload} disabled={uploadingPhoto} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500">
+                        {uploadingPhoto ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading...</> : <><Save className="w-4 h-4" />Upload</>}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
-
               <div className="flex items-center justify-end gap-3 p-6 pt-0">
-                <button
-                  type="button"
-                  onClick={handleCancelPhotoUpload}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
+                <button type="button" onClick={handleCancelPhotoUpload} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">Cancel</button>
               </div>
             </motion.div>
           </div>

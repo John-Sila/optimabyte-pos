@@ -60,6 +60,7 @@ export interface Sale {
 }
 
 export interface InventoryItem {
+  category: string;
   isbn: string;
   sellingPrice: any;
   id: string;
