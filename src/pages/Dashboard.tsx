@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [usersCount, setUsersCount] = useState(0);
   const [customerSearch, setCustomerSearch] = useState('');
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [location, setLocation] = useState('Detecting...');
 
 
   useEffect(() => {
@@ -112,7 +113,6 @@ export default function Dashboard() {
 
   const year = new Date().getFullYear().toString();
   const month = new Date().toLocaleString('default', { month: 'long' });
-
 
   const monthlyBagsSold = Number(stats.soldPieces?.[year]?.[month] || 0);
   const monthlySales = Number(stats.soldAmount?.[year]?.[month] || 0);
@@ -241,6 +241,67 @@ export default function Dashboard() {
   const effectiveType = conn?.effectiveType?.toUpperCase() || 'UNKNOWN';
   const downlink = conn?.downlink ? `${conn.downlink} Mbps` : 'UNKNOWN';
 
+  useEffect(() => {
+    const getLocation = async () => {
+      // First try GPS / device location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            try {
+
+              // Reverse geocode
+              const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+              );
+
+              const data = await res.json();
+
+              const city =
+                data.address?.city ||
+                data.address?.town ||
+                data.address?.village;
+
+              const county = data.address?.county;
+              const state = data.address?.state;
+
+              setLocation(
+                [city, county, state]
+                  .filter(Boolean)
+                  .join(', ')
+              );
+            } catch {
+              setLocation(
+                `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+              );
+            }
+          },
+          async () => {
+            // Fallback to IP location
+            try {
+              const res = await fetch('https://ipapi.co/json/');
+              const data = await res.json();
+
+              setLocation(
+                [data.city, data.region, data.country_name]
+                  .filter(Boolean)
+                  .join(', ')
+              );
+            } catch {
+              setLocation('Location Unavailable');
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000, // 5 mins cache
+          }
+        );
+      }
+    };
+
+    getLocation();
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -252,7 +313,8 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>Region: <strong className="text-slate-600 dark:text-slate-300">Pridelands, Machakos</strong></span>
+          {/* Swapped the hardcoded text for our live state variable */}
+          <span>Region: <strong className="text-slate-600 dark:text-slate-300">{location}</strong></span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
