@@ -5,7 +5,7 @@ export const RIGHTS = {
   PRODUCTION: 'production_access',
   USERS: 'users_access',
   ANALYTICS: 'analytics_access',
-  FILTRATION: 'filtration_access'
+  FILTRATION: 'filter_access'
 } as const;
 
 export type Right = typeof RIGHTS[keyof typeof RIGHTS];
