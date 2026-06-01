@@ -197,9 +197,37 @@ export default function Dashboard() {
     String(txn.items?.join(' ') || '').toLowerCase().includes(q)
   );
 
+  const deviceOS = typeof window !== 'undefined' && navigator.userAgent.includes('Windows') ? 'Windows' : 'Other OS';
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  // Safe extraction of network statistics
+  const conn = typeof navigator !== 'undefined' ? ((navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection) : null;
+  const effectiveType = conn?.effectiveType?.toUpperCase() || 'UNKNOWN';
+  const downlink = conn?.downlink ? `${conn.downlink} Mbps` : 'UNKNOWN';
+
 
   return (
     <div className="space-y-8">
+      {/* device */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/60 px-5 py-3 rounded-2xl">
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+          <span>Platform: <strong className="text-slate-600 dark:text-slate-300">{deviceOS}</strong></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span>Region: <strong className="text-slate-600 dark:text-slate-300">Pridelands, Machakos</strong></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+          <span>Timezone: <strong className="text-slate-600 dark:text-slate-300">{timezone}</strong></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+          <span>Network: <strong className="text-slate-600 dark:text-slate-300">{effectiveType} ({downlink})</strong></span>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card, i) => (
