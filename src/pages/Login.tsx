@@ -100,7 +100,7 @@ export default function LoginPage() {
               <Store className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">OptimaPOS</h1>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 px-3 py-1 bg-slate-100 rounded-full inline-block">Authorized Entrance Only</p>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 px-3 py-1 bg-slate-100 rounded-full inline-block">Controlled Access</p>
           </div>
 
           {error && (
@@ -113,7 +113,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="p-8 space-y-5">
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Identification</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Email Address</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                     <Mail className="w-4 h-4" />
@@ -130,7 +130,7 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Access Key</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Passcode</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                     <Lock className="w-4 h-4" />

@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   company: Company | null;
-  rights: string[]; // NEW
+  rights: string[];
   loading: boolean;
   error: string | null;
 }
@@ -19,16 +19,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
-  const [rights, setRights] = useState<string[]>([]); // NEW
+  const [rights, setRights] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
-      setLoading(true);
-      setFirebaseUser(fUser);
+      // CRITICAL CHANGE: Do not flip loading states or clear profiles independently.
+      // Keep loading true while the engine pulls documents down from Firestore.
+      setLoading(true); 
+      setError(null);
 
       if (!fUser) {
+        setFirebaseUser(null);
         setUser(null);
         setCompany(null);
         setRights([]);
@@ -57,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        setCompany({ id: companySnap.id, ...companySnap.data() } as Company);
+        const companyData = { id: companySnap.id, ...companySnap.data() } as Company;
 
         const userRef = doc(db, 'companies', companyId, 'users', fUser.uid);
         const userSnap = await getDoc(userRef);
@@ -70,15 +73,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const userData = userSnap.data() as User;
 
+        // BATCH STATE UPDATES AT THE END:
+        // Set everything together right here to prevent intermediate layout flash re-triggers.
+        setFirebaseUser(fUser);
+        setCompany(companyData);
         setUser(userData);
-
-        // IMPORTANT: normalize rights defensively
         setRights(Array.isArray((userData as any).rights) ? (userData as any).rights : []);
 
       } catch (err: any) {
         console.error('Error fetching auth data:', err);
         setError(err.message);
+        // Clear variables out defensively on core system network errors
+        setFirebaseUser(null);
+        setUser(null);
+        setCompany(null);
       } finally {
+        // Safe to uncover layouts now
         setLoading(false);
       }
     });
