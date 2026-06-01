@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -13,6 +13,9 @@ import Filtration from './pages/Filtration';
 
 import { Toaster } from 'sonner';
 import Layout from './components/Layout';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from './lib/firebase';
 
 function Loader() {
   return (
@@ -86,6 +89,73 @@ function Guard({
   }
 
   return <Layout>{children}</Layout>;
+}
+
+function SessionManager() {
+  const { firebaseUser, company } = useAuth();
+
+  useEffect(() => {
+    if (!firebaseUser || !company) return;
+
+    let reloadTimer: ReturnType<typeof setInterval>;
+    let sessionTimer: ReturnType<typeof setInterval>;
+
+    const checkSession = async () => {
+      try {
+        const userRef = doc(
+          db,
+          'companies',
+          company.id,
+          'users',
+          firebaseUser.uid
+        );
+
+        const snap = await getDoc(userRef);
+
+        if (!snap.exists()) {
+          await signOut(auth);
+          return;
+        }
+
+        const data = snap.data();
+        const lastLogin = data.lastLogin?.toDate?.();
+
+        if (!lastLogin) {
+          await signOut(auth);
+          return;
+        }
+
+        const ageMs = Date.now() - lastLogin.getTime();
+
+        const ONE_HOUR = 60 * 60 * 1000;
+
+        if (ageMs > ONE_HOUR) {
+          console.warn('Session expired');
+          await signOut(auth);
+        }
+      } catch (err) {
+        console.error('Session validation failed:', err);
+      }
+    };
+
+    // Immediate check
+    checkSession();
+
+    // Check every minute
+    sessionTimer = setInterval(checkSession, 60 * 1000);
+
+    // Auto refresh every 30 mins
+    reloadTimer = setInterval(() => {
+      window.location.reload();
+    }, 30 * 60 * 1000);
+
+    return () => {
+      clearInterval(sessionTimer);
+      clearInterval(reloadTimer);
+    };
+  }, [firebaseUser, company]);
+
+  return null;
 }
 
 function AppRoutes() {
@@ -169,6 +239,9 @@ export default function App() {
     <AuthProvider>
       <Router>
         <Toaster position="top-center" richColors />
+
+        <SessionManager />
+
         <AppRoutes />
       </Router>
     </AuthProvider>

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 
 let config = {
   apiKey: "AIzaSyCz44x30JDvPMRDyzOcFktAyYN6arp4EV8",
@@ -12,6 +12,15 @@ let config = {
   firestoreDatabaseId: "(default)"
 };
 
+// const app = getApps().length > 0 ? getApp() : initializeApp(config);
+// export const auth = getAuth(app);
+// export const db = getFirestore(app, config.firestoreDatabaseId || '(default)');
+
 const app = getApps().length > 0 ? getApp() : initializeApp(config);
+
 export const auth = getAuth(app);
-export const db = getFirestore(app, config.firestoreDatabaseId || '(default)');
+
+// Force Firestore to stick exclusively to WebSockets, bypassing the ad blocker channel issues
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: false
+});

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import { Store, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getAuthErrorMessage } from '../utils/authErrors';
-import { doc, updateDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext'; // Import context hook
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,63 +14,72 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { error: authContextError, user } = useAuth(); // Listen to profile errors
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
-
-  try {
-    // 1. Auth
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
-
-    // 2. Fetch global user profile (source of truth for companyId)
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      throw new Error('User profile not found');
+  // Sync validation errors or active session paths from your AuthProvider context
+  useEffect(() => {
+    if (authContextError) {
+      setError(authContextError);
     }
-
-    const userData = userSnap.data();
-    const companyId = userData.company;
-
-    if (!companyId) {
-      throw new Error('User is not assigned to a company');
+    if (user) {
+      navigate('/dashboard'); // Auto-forward if user data loads successfully
     }
+  }, [authContextError, user, navigate]);
 
-    // 3. Update tenant-scoped user record
-    const companyUserRef = doc(
-      db,
-      'companies',
-      companyId,
-      'users',
-      uid
-    );
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-    await setDoc(
-      companyUserRef,
-      {
-        lastLogin: serverTimestamp()
-      },
-      { merge: true }
-    );
+    try {
+      // 1. Auth
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
 
-    // optional: persist resolved context if needed
-    // setCompanyId(companyId)
+      // 2. Fetch global user profile (source of truth for companyId)
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
 
-    navigate('/');
-  } catch (err: any) {
-    console.error('Login error:', err);
-    setError(getAuthErrorMessage(err.code || err.message));
-  } finally {
-    setLoading(false);
-  }
-};
+      if (!userSnap.exists()) {
+        throw new Error('User profile not found');
+      }
+
+      const userData = userSnap.data();
+      const companyId = userData.company;
+
+      if (!companyId) {
+        throw new Error('User is not assigned to a company');
+      }
+
+      // 3. Update tenant-scoped user record
+      const companyUserRef = doc(
+        db,
+        'companies',
+        companyId,
+        'users',
+        uid
+      );
+
+      await setDoc(
+        companyUserRef,
+        {
+          lastLogin: serverTimestamp()
+        },
+        { merge: true }
+      );
+      
+      // 4. FIX: Fire the redirect hook right after database operations succeed
+      navigate('/dashboard');
+      
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(getAuthErrorMessage(err.code || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-  
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}

@@ -177,7 +177,7 @@ export default function Sales() {
   const handleSaveSale = async () => {
     if (!company || cart.length === 0) return;
     setProcessing(true);
-    notify.success('Saving transaction...');
+    const loader = notify.loading('Saving transaction...');
 
     try {
       const saleId = Math.random().toString(36).slice(2, 12).toUpperCase();
@@ -351,8 +351,10 @@ export default function Sales() {
       setCart([]);
       setSelectedCustomer('');
       setNewCustomerName('');
+      notify.dismiss(loader);
       notify.success('Transaction completed.');
     } catch (err: any) {
+      notify.dismiss(loader);
       notify.error('We encountered a fatal error');
       console.error(err);
     } finally {

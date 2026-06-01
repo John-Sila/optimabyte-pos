@@ -208,6 +208,31 @@ export default function Dashboard() {
     return 'Other OS';
   };
 
+  // Add this helper above your component
+  function abbreviate(value: string): { prefix: string; main: string } {
+    // Strip currency prefix like "KES "
+    const currencyMatch = value.match(/^([A-Z]+)\s(.+)$/);
+    const prefix = currencyMatch ? currencyMatch[1] : '';
+    const raw = currencyMatch ? currencyMatch[2] : value;
+
+    // Strip commas and parse
+    const num = parseFloat(raw.replace(/,/g, ''));
+    if (isNaN(num)) return { prefix, main: raw };
+
+    if (num >= 1_000_000_000) return { prefix, main: (num / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + 'B' };
+    if (num >= 1_000_000)     return { prefix, main: (num / 1_000_000).toFixed(2).replace(/\.00$/, '') + 'M' };
+    if (num >= 1_000)         return { prefix, main: (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K' };
+    return { prefix, main: num.toLocaleString() };
+  }
+
+  // Color config map — avoids Tailwind purging dynamic classes
+  const colorMap: Record<string, { bg: string; icon: string; badge: string; text: string }> = {
+    emerald: { bg: 'bg-green-50  dark:bg-green-950/30', icon: 'text-green-700  dark:text-green-400', badge: 'bg-green-100  dark:bg-green-900/40 text-green-800  dark:text-green-300', text: 'text-green-700 dark:text-green-400' },
+    blue:    { bg: 'bg-blue-50   dark:bg-blue-950/30',  icon: 'text-blue-700   dark:text-blue-400',  badge: 'bg-blue-100   dark:bg-blue-900/40  text-blue-800   dark:text-blue-300',  text: 'text-blue-700  dark:text-blue-400'  },
+    orange:  { bg: 'bg-amber-50  dark:bg-amber-950/30', icon: 'text-amber-700  dark:text-amber-400', badge: 'bg-amber-100  dark:bg-amber-900/40 text-amber-800  dark:text-amber-300', text: 'text-amber-700 dark:text-amber-400' },
+    violet:  { bg: 'bg-violet-50 dark:bg-violet-950/30',icon: 'text-violet-700 dark:text-violet-400',badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300',text: 'text-violet-700 dark:text-violet-400'},
+  };
+
   const deviceOS = getDeviceOS();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
@@ -239,48 +264,57 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {cards.map((card, i) => (
-          <motion.div
-            key={card.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.5 }}
-            whileHover={{ y: -4, scale: 1.02 }}
-            className="group relative bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-lg hover:shadow-2xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/30 transition-all duration-300"
-          >
-            {/* Colored accent ring */}
-            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300 blur-xl`} />
-            
-            <div className="relative z-10 flex items-start justify-between mb-4">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">
-                {card.title}
-              </p>
-              <div className={`p-2 rounded-xl bg-${card.color}-500/10 group-hover:bg-${card.color}-500/20 backdrop-blur-sm border border-${card.color}-200/30 dark:border-${card.color}-800/30 transition-all duration-300`}>
-                <card.icon className={`w-5 h-5 text-${card.color}-500 group-hover:scale-110 transition-transform duration-200`} />
+      {/* Cards grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card, i) => {
+          const c = colorMap[card.color];
+          const { prefix, main } = abbreviate(card.value);
+
+          return (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08, duration: 0.4 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70
+                rounded-2xl p-5 flex flex-col gap-3
+                hover:border-slate-300 dark:hover:border-slate-700
+                transition-colors duration-200"
+            >
+              {/* Top row */}
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest
+                  text-slate-400 dark:text-slate-500 leading-tight">
+                  {card.title}
+                </p>
+                <div className={`p-2 rounded-lg ${c.bg}`}>
+                  <card.icon className={`w-4 h-4 ${c.icon}`} />
+                </div>
               </div>
-            </div>
-            
-            <p className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent leading-tight">
-              {card.value}
-            </p>
-            
-            <div className="flex items-center gap-2 mt-3">
-              <motion.span 
-                className={`text-xs font-black px-3 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm`}
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2 }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <span className={`text-${card.color}-600 dark:text-${card.color}-400 font-black tracking-wide`}>
+
+              {/* Value */}
+              <div>
+                {prefix && (
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-0.5">
+                    {prefix}
+                  </p>
+                )}
+                <p className="text-2xl font-black text-slate-900 dark:text-slate-100 leading-none">
+                  {main}
+                </p>
+              </div>
+
+              {/* Badge */}
+              <div>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-black
+                  uppercase tracking-wider px-2.5 py-1 rounded-full ${c.badge}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                   {card.trend}
                 </span>
-              </motion.span>
-            </div>
-          </motion.div>
-        ))}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Recent Transactions Table */}
