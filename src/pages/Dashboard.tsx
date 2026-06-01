@@ -352,7 +352,7 @@ export default function Dashboard() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full whitespace-nowrap">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-400 dark:text-slate-500 text-xs uppercase font-black tracking-widest border-b border-slate-200/50 dark:border-slate-800/50">
                 <th className="px-6 py-4 text-left">T-ID</th>
@@ -378,10 +378,10 @@ export default function Dashboard() {
                   <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                     {txn.id?.slice(-8).toUpperCase() || '-'}
                   </td>
-                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
+                  <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-medium">
                     {txn.cashier || '-'}
                   </td>
-                  <td className="px-6 py-4 text-slate-700 text-sm dark:text-slate-300 font-medium max-w-[160px] truncate">
+                  <td className="px-6 py-4 text-slate-700 text-sm dark:text-slate-300 font-medium">
                     {txn.customerName || '-'}
                   </td>
                   <td className="px-6 py-4">
@@ -399,9 +399,9 @@ export default function Dashboard() {
                   <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-bold">
                     {txn.totalProducts || '-'}
                   </td>
-                  <td className="px-6 py-4 max-w-[280px]">
+                  <td className="px-6 py-4">
                     {txn.items?.length ? (
-                      <div className="space-y-1.5">
+                      <div className="flex flex-col gap-1.5">
                         {txn.items.slice(0, 2).map((item, i) => {
                           const photoUrl = getItemPhoto(item);
                           return (
@@ -410,38 +410,36 @@ export default function Dashboard() {
                                 <img
                                   src={photoUrl}
                                   alt={item}
-                                  className="w-8 h-8 rounded-md object-cover border border-slate-200 dark:border-slate-700"
+                                  className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+                                <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center border border-slate-200 dark:bg-slate-800 dark:border-slate-700 flex-shrink-0">
                                   <PackageIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                 </div>
                               )}
-                              <span className="inline-block bg-slate-100/50 dark:bg-slate-800/50 px-2 py-0.5 rounded text-xs text-slate-700 dark:text-slate-300">
+                              <span className="inline-block bg-slate-100/50 dark:bg-slate-800/50 px-2 py-0.5 rounded text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                 {item}
                               </span>
                             </div>
                           );
                         })}
                         {txn.items.length > 2 && (
-                          <span className="text-slate-400 text-xs">+{txn.items.length - 2}</span>
+                          <span className="text-slate-400 text-xs whitespace-nowrap">+{txn.items.length - 2}</span>
                         )}
                       </div>
                     ) : '-'}
                   </td>
-                  <td className="px-6 py-4 text-right font-bold whitespace-nowrap">
-                    <div className="flex flex-col items-end">
-                      <span className="text-slate-900 dark:text-slate-100">
-                        {Number(txn.totalAmount) === 0 ? '-' : `KES ${Number(txn.totalAmount).toLocaleString()}`}
-                      </span>
-                    </div>
+                  <td className="px-6 py-4 text-right font-bold">
+                    <span className="text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                      {Number(txn.totalAmount) === 0 ? '-' : `KES ${Number(txn.totalAmount).toLocaleString()}`}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider backdrop-blur-sm shadow-sm ${getStatusStyle(txn.status)}`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider backdrop-blur-sm shadow-sm whitespace-nowrap ${getStatusStyle(txn.status)}`}>
                       {txn.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-[11px] font-medium whitespace-nowrap">
+                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-[11px] font-medium">
                     {formatDate(txn.dateCompleted)}
                   </td>
                 </motion.tr>
@@ -462,6 +460,7 @@ export default function Dashboard() {
           </table>
         </div>
       </motion.div>
+
     </div>
   );
 }
