@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { motion } from 'motion/react';
 
 type NestedStats = Record<string, Record<string, number>>;
 
@@ -249,187 +250,197 @@ export default function Analytics() {
   ];
 
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-100">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-            Business Intelligence
-          </h2>
-          <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
-            Financial performance and sales velocity metrics.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportPdf}
-            disabled={exporting}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-          >
-            <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            {exporting ? 'Exporting...' : 'Export PDF'}
-          </button>
-        </div>
-      </div>
-
-      {/* Top 4 stats */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        {topStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-          >
-            <div className={`${stat.color} opacity-60`}>
-              <stat.icon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-slate-400 dark:text-slate-500">
-                {stat.label}
-              </p>
-              <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
-                {stat.value}
-              </p>
-            </div>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.35,
+        ease: 'easeOut',
+      }}
+      className="h-full"
+    >
+      <div className="space-y-6 text-slate-900 dark:text-slate-100">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+              Business Intelligence
+            </h2>
+            <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
+              Financial performance and sales velocity metrics.
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Bottom 4 worst-month stats */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        {bottomStats.map((stat) => (
-          <div
-            key={stat.label}
-            className="flex items-center gap-4 rounded-xl border border-rose-100 bg-rose-50/50 p-5 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
-          >
-            <div className={`${stat.color} opacity-70`}>
-              <stat.icon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-rose-400 dark:text-rose-500">
-                {stat.label}
-              </p>
-              <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
-                {stat.value}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            <TrendingUp className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-            Revenue vs Sales
-          </h3>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#94a3b8"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportPdf}
+              disabled={exporting}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+              {exporting ? 'Exporting...' : 'Export PDF'}
+            </button>
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            <PieIcon className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-            Category Mix
-          </h3>
-          <div className="flex h-72 w-full items-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {categoryData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-
-            <div className="space-y-3 pr-4">
-              {categoryData.map((cat, i) => (
-                <div key={cat.name} className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="max-w-[80px] truncate text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                    {cat.name}
-                  </span>
-                  <span className="ml-auto font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                    {categoryTotal > 0 ? ((cat.value / categoryTotal) * 100).toFixed(0) : 0}%
-                  </span>
-                </div>
-              ))}
+        {/* Top 4 stats */}
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {topStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className={`${stat.color} opacity-60`}>
+                <stat.icon className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-slate-400 dark:text-slate-500">
+                  {stat.label}
+                </p>
+                <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
+                  {stat.value}
+                </p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2 dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-100 bg-slate-50/30 p-4 dark:border-slate-800 dark:bg-slate-950/40">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
-              Performance Matrix
+        {/* Bottom 4 worst-month stats */}
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {bottomStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="flex items-center gap-4 rounded-xl border border-rose-100 bg-rose-50/50 p-5 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
+            >
+              <div className={`${stat.color} opacity-70`}>
+                <stat.icon className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-rose-400 dark:text-rose-500">
+                  {stat.label}
+                </p>
+                <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <TrendingUp className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+              Revenue vs Sales
             </h3>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartRows}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="#94a3b8"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="h-72 w-full p-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="sales" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={24} />
-                <Bar dataKey="revenue" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <PieIcon className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+              Category Mix
+            </h3>
+            <div className="flex h-72 w-full items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {categoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div className="space-y-3 pr-4">
+                {categoryData.map((cat, i) => (
+                  <div key={cat.name} className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
+                    <span className="max-w-[80px] truncate text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      {cat.name}
+                    </span>
+                    <span className="ml-auto font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                      {categoryTotal > 0 ? ((cat.value / categoryTotal) * 100).toFixed(0) : 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2 dark:border-slate-800 dark:bg-slate-900">
+            <div className="border-b border-slate-100 bg-slate-50/30 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
+                Performance Matrix
+              </h3>
+            </div>
+            <div className="h-72 w-full p-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartRows}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="sales" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="revenue" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import SystemLoadingBar from '../components/LoadingScreen';
+import { motion } from 'motion/react';
 
 type NestedStats = Record<string, Record<string, number>>;
 
@@ -263,169 +264,180 @@ export default function Filtration() {
   }
 
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-100">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-            Filtration — {company?.name || 'Unknown Company'}
-          </h1>
-          <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
-            Filter general stats or customer stats by month and year.
-          </p>
+
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.35,
+        ease: 'easeOut',
+      }}
+      className="h-full"
+    >
+      <div className="space-y-6 text-slate-900 dark:text-slate-100">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+              Filtration — {company?.name || 'Unknown Company'}
+            </h1>
+            <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">
+              Filter general stats or customer stats by month and year.
+            </p>
+          </div>
+
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            <Download className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+            {exporting ? 'Exporting...' : 'Export PDF'}
+          </button>
         </div>
 
-        <button
-          onClick={handleExportPdf}
-          disabled={exporting}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-sm transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-        >
-          <Download className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-          {exporting ? 'Exporting...' : 'Export PDF'}
-        </button>
-      </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Stat label={`Selected ${metricLabel}`} value={totalValue.toFixed(2)} />
+          <Stat label="Top Month" value={topRow} />
+          <Stat label="Source" value={source === 'general' ? 'General Stats' : selectedCustomer?.customerName || 'Selected Customer'} />
+          <Stat label="Rows" value={filteredRows.length} />
+        </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Stat label={`Selected ${metricLabel}`} value={totalValue.toFixed(2)} />
-        <Stat label="Top Month" value={topRow} />
-        <Stat label="Source" value={source === 'general' ? 'General Stats' : selectedCustomer?.customerName || 'Selected Customer'} />
-        <Stat label="Rows" value={filteredRows.length} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2 xl:grid-cols-4">
-        <SelectField
-          label="Source"
-          icon={<Boxes className="h-4 w-4" />}
-          value={source}
-          onChange={(v) => setSource(v as Source)}
-          options={[
-            { value: 'general', label: 'General Stats' },
-            { value: 'customer', label: 'Customer Stats' }
-          ]}
-        />
-
-        <SelectField
-          label="Metric"
-          icon={<TrendingUp className="h-4 w-4" />}
-          value={metric}
-          onChange={(v) => setMetric(v as Metric)}
-          options={[
-            { value: 'revenues', label: 'Revenues' },
-            { value: 'soldAmount', label: 'Sold Amount' },
-            { value: 'soldPieces', label: 'Sold Pieces' }
-          ]}
-        />
-
-        <SelectField
-          label="Time"
-          icon={<CalendarRange className="h-4 w-4" />}
-          value={timePreset}
-          onChange={(v) => setTimePreset(v as TimePreset)}
-          options={[
-            { value: 'all', label: 'All Months' },
-            { value: 'thisMonth', label: 'This Month' },
-            { value: 'lastMonth', label: 'Last Month' },
-            { value: 'month', label: 'Selected Month' },
-            { value: 'year', label: 'Selected Year' }
-          ]}
-        />
-
-        <SelectField
-          label="Customer"
-          icon={<Users className="h-4 w-4" />}
-          value={customerId}
-          onChange={setCustomerId}
-          options={[
-            { value: '', label: 'All Customers' },
-            ...customers.map((c) => ({ value: c.id, label: c.customerName || c.id }))
-          ]}
-          disabled={source !== 'customer'}
-        />
-
-        <SelectField
-          label="Month"
-          icon={<Filter className="h-4 w-4" />}
-          value={selectedMonth}
-          onChange={setSelectedMonth}
-          options={MONTHS.map((m) => ({ value: m, label: m }))}
-        />
-
-        <SelectField
-          label="Year"
-          icon={<Filter className="h-4 w-4" />}
-          value={selectedYear}
-          onChange={setSelectedYear}
-          options={[
-            String(new Date().getFullYear()),
-            String(new Date().getFullYear() - 1),
-            '2024',
-            '2025',
-            '2026'
-          ].map((y) => ({ value: y, label: y }))}
-        />
-
-        <div className="md:col-span-2 xl:col-span-2">
-          <label className="mb-1.5 block text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            Search
-          </label>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search month..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+        <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2 xl:grid-cols-4">
+          <SelectField
+            label="Source"
+            icon={<Boxes className="h-4 w-4" />}
+            value={source}
+            onChange={(v) => setSource(v as Source)}
+            options={[
+              { value: 'general', label: 'General Stats' },
+              { value: 'customer', label: 'Customer Stats' }
+            ]}
           />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="mb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            {metricLabel} Trend
-          </h3>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={filteredRows}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line
-                  type="monotone"
-                  dataKey={metric}
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <SelectField
+            label="Metric"
+            icon={<TrendingUp className="h-4 w-4" />}
+            value={metric}
+            onChange={(v) => setMetric(v as Metric)}
+            options={[
+              { value: 'revenues', label: 'Revenues' },
+              { value: 'soldAmount', label: 'Sold Amount' },
+              { value: 'soldPieces', label: 'Sold Pieces' }
+            ]}
+          />
+
+          <SelectField
+            label="Time"
+            icon={<CalendarRange className="h-4 w-4" />}
+            value={timePreset}
+            onChange={(v) => setTimePreset(v as TimePreset)}
+            options={[
+              { value: 'all', label: 'All Months' },
+              { value: 'thisMonth', label: 'This Month' },
+              { value: 'lastMonth', label: 'Last Month' },
+              { value: 'month', label: 'Selected Month' },
+              { value: 'year', label: 'Selected Year' }
+            ]}
+          />
+
+          <SelectField
+            label="Customer"
+            icon={<Users className="h-4 w-4" />}
+            value={customerId}
+            onChange={setCustomerId}
+            options={[
+              { value: '', label: 'All Customers' },
+              ...customers.map((c) => ({ value: c.id, label: c.customerName || c.id }))
+            ]}
+            disabled={source !== 'customer'}
+          />
+
+          <SelectField
+            label="Month"
+            icon={<Filter className="h-4 w-4" />}
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            options={MONTHS.map((m) => ({ value: m, label: m }))}
+          />
+
+          <SelectField
+            label="Year"
+            icon={<Filter className="h-4 w-4" />}
+            value={selectedYear}
+            onChange={setSelectedYear}
+            options={[
+              String(new Date().getFullYear()),
+              String(new Date().getFullYear() - 1),
+              '2024',
+              '2025',
+              '2026'
+            ].map((y) => ({ value: y, label: y }))}
+          />
+
+          <div className="md:col-span-2 xl:col-span-2">
+            <label className="mb-1.5 block text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              Search
+            </label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search month..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+            />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="mb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            Sample Rows
-          </h3>
-          <div className="space-y-3">
-            {filteredRows.slice(0, 6).map((row) => (
-              <div key={row.name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
-                <div>
-                  <p className="font-bold text-slate-900 dark:text-slate-100">{row.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{metricLabel}</p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              {metricLabel} Trend
+            </h3>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredRows}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Line
+                    type="monotone"
+                    dataKey={metric}
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              Sample Rows
+            </h3>
+            <div className="space-y-3">
+              {filteredRows.slice(0, 6).map((row) => (
+                <div key={row.name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">{row.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{metricLabel}</p>
+                  </div>
+                  <p className="font-black text-slate-900 dark:text-slate-100">
+                    {safeNumber(row[metric]).toFixed(2)}
+                  </p>
                 </div>
-                <p className="font-black text-slate-900 dark:text-slate-100">
-                  {safeNumber(row[metric]).toFixed(2)}
-                </p>
-              </div>
-            ))}
-            {!filteredRows.length && (
-              <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                No matching data.
-              </div>
-            )}
+              ))}
+              {!filteredRows.length && (
+                <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  No matching data.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

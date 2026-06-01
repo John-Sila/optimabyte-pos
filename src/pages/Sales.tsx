@@ -372,395 +372,406 @@ export default function Sales() {
 
 
   return (
-    <div className="h-screen flex gap-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0 h-full">
-        <div className="mb-6 space-y-3">
-          <div className="relative">
-            <select
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-            >
-              <option value="">Select customer</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.customerName}
-                </option>
-              ))}
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
 
-          {selectedCustomer === 'OTHER' && (
-            <input
-              type="text"
-              value={newCustomerName}
-              onChange={(e) => setNewCustomerName(e.target.value)}
-              placeholder="Enter new customer name"
-              className="w-full px-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-            />
-          )}
-        </div>
-
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search inventory by name or SKU..."
-            className="w-full pl-11 pr-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="h-full overflow-y-auto grid auto-rows-max grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-1 content-start">
-          {filteredInventory.map(item => (
-            <button
-              key={item.id}
-              onClick={() => openQuantityDialog(item)}
-              disabled={Number(item.quantity) <= 0}
-              className="group flex flex-col justify-between rounded-2xl border bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-blue-500/50 disabled:opacity-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-400/50"
-            >
-              <div>
-                <div className="mb-2 flex aspect-square w-full items-center justify-center rounded-xl bg-slate-50 text-slate-300 transition-transform group-hover:scale-[1.02] dark:bg-slate-800 dark:text-slate-500 overflow-hidden">
-                  {item.photoURL ? (
-                    <img
-                      src={item.photoURL}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Package className="w-8 h-8" />
-                  )}
-                </div>
-                <h3 className="text-sm font-bold leading-tight text-slate-800 line-clamp-2 dark:text-slate-100">
-                  {item.name}
-                </h3>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                  QTY: {item.quantity}
-                </p>
-              </div>
-              <p className="mt-3 text-lg font-black text-slate-900 dark:text-slate-100">
-                KES {Number(item.sellingPrice || 0).toLocaleString()}
-              </p>
-            </button>
-          ))}
-
-          {filteredInventory.length === 0 && (
-            <div className="col-span-full py-20 text-center text-slate-400 italic text-sm dark:text-slate-500">
-              No matches found.
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.35,
+        ease: 'easeOut',
+      }}
+      className="h-full"
+    >
+      <div className="h-screen flex gap-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 h-full">
+          <div className="mb-6 space-y-3">
+            <div className="relative">
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+              >
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.customerName}
+                  </option>
+                ))}
+                <option value="OTHER">Other</option>
+              </select>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="w-80 shrink-0 flex flex-col h-full overflow-hidden rounded-2xl border bg-white shadow-sm border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-
-        {/* Header / Identity Layer */}
-        <div className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-2">
-
-          <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
-            <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            Current Receipt
-          </h2>
-
-          {/* Customer Context (Reactive Identity Layer) */}
-          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-            <span className="font-bold text-slate-700 dark:text-slate-200">
-              Customer:
-            </span>{' '}
-
-            {selectedCustomer === '' && (
-              <span className="italic text-slate-400">Not selected</span>
-            )}
-
-            {selectedCustomer && selectedCustomer !== 'OTHER' && (
-              <span className="text-slate-700 dark:text-slate-200">
-                {customers.find(c => c.id === selectedCustomer)?.customerName || 'Unknown'}
-              </span>
-            )}
 
             {selectedCustomer === 'OTHER' && (
-              <span className="text-blue-600 dark:text-blue-400 font-semibold">
-                {newCustomerName?.trim() || 'Typing new customer...'}
-              </span>
+              <input
+                type="text"
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                placeholder="Enter new customer name"
+                className="w-full px-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+              />
+            )}
+          </div>
+
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search inventory by name or SKU..."
+              className="w-full pl-11 pr-4 py-3 rounded-xl border bg-white text-slate-900 border-slate-200 shadow-sm outline-none transition-all text-sm font-medium placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="h-full overflow-y-auto grid auto-rows-max grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-1 content-start">
+            {filteredInventory.map(item => (
+              <button
+                key={item.id}
+                onClick={() => openQuantityDialog(item)}
+                disabled={Number(item.quantity) <= 0}
+                className="group flex flex-col justify-between rounded-2xl border bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-blue-500/50 disabled:opacity-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-400/50"
+              >
+                <div>
+                  <div className="mb-2 flex aspect-square w-full items-center justify-center rounded-xl bg-slate-50 text-slate-300 transition-transform group-hover:scale-[1.02] dark:bg-slate-800 dark:text-slate-500 overflow-hidden">
+                    {item.photoURL ? (
+                      <img
+                        src={item.photoURL}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Package className="w-8 h-8" />
+                    )}
+                  </div>
+                  <h3 className="text-sm font-bold leading-tight text-slate-800 line-clamp-2 dark:text-slate-100">
+                    {item.name}
+                  </h3>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    QTY: {item.quantity}
+                  </p>
+                </div>
+                <p className="mt-3 text-lg font-black text-slate-900 dark:text-slate-100">
+                  KES {Number(item.sellingPrice || 0).toLocaleString()}
+                </p>
+              </button>
+            ))}
+
+            {filteredInventory.length === 0 && (
+              <div className="col-span-full py-20 text-center text-slate-400 italic text-sm dark:text-slate-500">
+                No matches found.
+              </div>
             )}
           </div>
         </div>
 
-        {/* Items Layer */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="w-80 shrink-0 flex flex-col h-full overflow-hidden rounded-2xl border bg-white shadow-sm border-slate-200 dark:bg-slate-900 dark:border-slate-800">
 
-          {cart.map(item => (
-            <div
-              key={item.itemId}
-              className="group flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/40 p-2 dark:border-slate-800 dark:bg-slate-950/30"
-            >
+          {/* Header / Identity Layer */}
+          <div className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-2">
 
-              {/* Item Info */}
-              <div className="min-w-0 flex-1">
-                <h4 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
-                  {item.name}
-                </h4>
+            <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
+              <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              Current Receipt
+            </h2>
 
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                  KES {item.unitPrice.toLocaleString()} × {item.quantity}
-                </p>
-              </div>
+            {/* Customer Context (Reactive Identity Layer) */}
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                Customer:
+              </span>{' '}
 
-              {/* Quantity Control */}
-              <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
+              {selectedCustomer === '' && (
+                <span className="italic text-slate-400">Not selected</span>
+              )}
 
-                <button
-                  onClick={() => changeCartQty(item.itemId, -1)}
-                  className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
-                >
-                  <Minus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
-                </button>
-
-                <span className="w-6 text-center text-xs font-bold text-slate-800 dark:text-slate-100">
-                  {item.quantity}
+              {selectedCustomer && selectedCustomer !== 'OTHER' && (
+                <span className="text-slate-700 dark:text-slate-200">
+                  {customers.find(c => c.id === selectedCustomer)?.customerName || 'Unknown'}
                 </span>
+              )}
 
-                <button
-                  onClick={() => changeCartQty(item.itemId, 1)}
-                  className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
-                >
-                  <Plus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
-                </button>
-              </div>
-
-              {/* Remove */}
-              <button
-                onClick={() => removeCartItem(item.itemId)}
-                className="opacity-40 hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 dark:hover:text-red-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {selectedCustomer === 'OTHER' && (
+                <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                  {newCustomerName?.trim() || 'Typing new customer...'}
+                </span>
+              )}
             </div>
-          ))}
-
-          {cart.length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center space-y-3 text-slate-300 opacity-60 dark:text-slate-600">
-              <ShoppingCart className="w-8 h-8" />
-              <p className="text-xs font-bold uppercase tracking-widest">
-                Empty Receipt
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Financial Summary Layer */}
-        <div className="border-t border-slate-200 bg-slate-50/70 p-5 space-y-2 dark:border-slate-800 dark:bg-slate-950/40">
-
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>Subtotal</span>
-            <span>KES {subtotal.toLocaleString()}</span>
           </div>
 
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>Tax (16%)</span>
-            <span>KES {tax.toLocaleString()}</span>
-          </div>
+          {/* Items Layer */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-          <div className="flex justify-between border-t border-dashed border-slate-300 pt-2 text-lg font-black text-slate-900 dark:border-slate-700 dark:text-slate-100">
-            <span>Total</span>
-            <span>KES {total.toLocaleString()}</span>
-          </div>
-        </div>
-
-        {/* Actions Layer */}
-        <div className="border-t border-slate-200 bg-white p-4 space-y-3 dark:border-slate-800 dark:bg-slate-900">
-
-          <div className="grid grid-cols-2 gap-3">
-
-            <button
-              onClick={clearReceipt}
-              disabled={cart.length === 0}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear
-            </button>
-
-            <button
-              disabled={!canSave}
-              onClick={() => setShowSaveConfirm(true)}
-              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 p-3 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              Save
-            </button>
-
-          </div>
-
-          <button
-            disabled={cart.length === 0 || processing}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider transition-all hover:border-blue-600 hover:text-blue-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400 dark:hover:text-blue-400"
-          >
-            <Sparkles className="w-4 h-4" />
-            Prompt Payment
-          </button>
-
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {selectedItem && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
-              onClick={() => {
-                setSelectedItem(null);
-                setQtyInput('');
-              }}
-            />
-
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
-            >
-              {/* Escape key listener wrapper */}
+            {cart.map(item => (
               <div
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setSelectedItem(null);
-                    setQtyInput('');
-                  }
-                }}
+                key={item.itemId}
+                className="group flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/40 p-2 dark:border-slate-800 dark:bg-slate-950/30"
               >
-                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                  <div>
-                    <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Add Item</h3>
-                    <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">{selectedItem.name}</p>
-                  </div>
+
+                {/* Item Info */}
+                <div className="min-w-0 flex-1">
+                  <h4 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {item.name}
+                  </h4>
+
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                    KES {item.unitPrice.toLocaleString()} × {item.quantity}
+                  </p>
+                </div>
+
+                {/* Quantity Control */}
+                <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
+
                   <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedItem(null);
-                      setQtyInput('');
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    onClick={() => changeCartQty(item.itemId, -1)}
+                    className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
                   >
-                    <X className="w-4 h-4" />
+                    <Minus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
+                  </button>
+
+                  <span className="w-6 text-center text-xs font-bold text-slate-800 dark:text-slate-100">
+                    {item.quantity}
+                  </span>
+
+                  <button
+                    onClick={() => changeCartQty(item.itemId, 1)}
+                    className="rounded-md p-1 hover:bg-white dark:hover:bg-slate-700"
+                  >
+                    <Plus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
                   </button>
                 </div>
 
-                {/* Form wrapper catches Enter key naturally */}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    addToCart();
-                  }}
-                  className="space-y-4 p-6"
+                {/* Remove */}
+                <button
+                  onClick={() => removeCartItem(item.itemId)}
+                  className="opacity-40 hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 dark:hover:text-red-400"
                 >
-                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Available: <span className="font-bold text-slate-800 dark:text-slate-100">{selectedItem.quantity}</span>
-                  </div>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
 
-                  <input
-                    type="number"
-                    min="1"
-                    max={selectedItem.quantity}
-                    value={qtyInput}
-                    onChange={(e) => setQtyInput(e.target.value)}
-                    // Blurs the input on scroll to prevent unexpected value changes
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
-                    placeholder="Enter quantity"
-                    autoFocus
-                  />
+            {cart.length === 0 && (
+              <div className="flex h-full flex-col items-center justify-center space-y-3 text-slate-300 opacity-60 dark:text-slate-600">
+                <ShoppingCart className="w-8 h-8" />
+                <p className="text-xs font-bold uppercase tracking-widest">
+                  Empty Receipt
+                </p>
+              </div>
+            )}
+          </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-2">
+          {/* Financial Summary Layer */}
+          <div className="border-t border-slate-200 bg-slate-50/70 p-5 space-y-2 dark:border-slate-800 dark:bg-slate-950/40">
+
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Subtotal</span>
+              <span>KES {subtotal.toLocaleString()}</span>
+            </div>
+
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Tax (16%)</span>
+              <span>KES {tax.toLocaleString()}</span>
+            </div>
+
+            <div className="flex justify-between border-t border-dashed border-slate-300 pt-2 text-lg font-black text-slate-900 dark:border-slate-700 dark:text-slate-100">
+              <span>Total</span>
+              <span>KES {total.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Actions Layer */}
+          <div className="border-t border-slate-200 bg-white p-4 space-y-3 dark:border-slate-800 dark:bg-slate-900">
+
+            <div className="grid grid-cols-2 gap-3">
+
+              <button
+                onClick={clearReceipt}
+                disabled={cart.length === 0}
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear
+              </button>
+
+              <button
+                disabled={!canSave}
+                onClick={() => setShowSaveConfirm(true)}
+                className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 p-3 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                Save
+              </button>
+
+            </div>
+
+            <button
+              disabled={cart.length === 0 || processing}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs font-bold uppercase tracking-wider transition-all hover:border-blue-600 hover:text-blue-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400 dark:hover:text-blue-400"
+            >
+              <Sparkles className="w-4 h-4" />
+              Prompt Payment
+            </button>
+
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {selectedItem && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+                onClick={() => {
+                  setSelectedItem(null);
+                  setQtyInput('');
+                }}
+              />
+
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
+              >
+                {/* Escape key listener wrapper */}
+                <div
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setSelectedItem(null);
+                      setQtyInput('');
+                    }
+                  }}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">Add Item</h3>
+                      <p className="text-xs font-medium tracking-tight text-slate-500 dark:text-slate-400">{selectedItem.name}</p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedItem(null);
                         setQtyInput('');
                       }}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Form wrapper catches Enter key naturally */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addToCart();
+                    }}
+                    className="space-y-4 p-6"
+                  >
+                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      Available: <span className="font-bold text-slate-800 dark:text-slate-100">{selectedItem.quantity}</span>
+                    </div>
+
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedItem.quantity}
+                      value={qtyInput}
+                      onChange={(e) => setQtyInput(e.target.value)}
+                      // Blurs the input on scroll to prevent unexpected value changes
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
+                      placeholder="Enter quantity"
+                      autoFocus
+                    />
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedItem(null);
+                          setQtyInput('');
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showSaveConfirm && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+                onClick={() => setShowSaveConfirm(false)}
+              />
+
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-8 py-6 dark:border-slate-800 dark:bg-slate-950/40">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Confirm Save</h3>
+                  <button
+                    onClick={() => setShowSaveConfirm(false)}
+                    className="rounded-xl p-2 transition-colors hover:bg-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <X className="w-6 h-6 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-6 p-8">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    Save this transaction with total of{' '}
+                    <span className="font-bold text-slate-900 dark:text-slate-100">
+                      KES {total.toLocaleString()}
+                    </span>
+                    ?
+                  </p>
+
+                  <div className="flex items-center justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowSaveConfirm(false)}
+                      className="rounded-xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                     >
                       Cancel
                     </button>
                     <button
-                      type="submit"
-                      className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      type="button"
+                      disabled={processing}
+                      onClick={async () => {
+                        await handleSaveSale();
+                      }}
+                      className="flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50"
                     >
-                      Add
+                      {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirm Save'}
                     </button>
                   </div>
-                </form>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showSaveConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
-              onClick={() => setShowSaveConfirm(false)}
-            />
-
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-8 py-6 dark:border-slate-800 dark:bg-slate-950/40">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Confirm Save</h3>
-                <button
-                  onClick={() => setShowSaveConfirm(false)}
-                  className="rounded-xl p-2 transition-colors hover:bg-slate-200 dark:hover:bg-slate-800"
-                >
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
-
-              <div className="space-y-6 p-8">
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Save this transaction with total of{' '}
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
-                    KES {total.toLocaleString()}
-                  </span>
-                  ?
-                </p>
-
-                <div className="flex items-center justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowSaveConfirm(false)}
-                    className="rounded-xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={processing}
-                    onClick={async () => {
-                      await handleSaveSale();
-                    }}
-                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirm Save'}
-                  </button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }

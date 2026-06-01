@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,7 +17,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
-const navItems = [
+const ROUTE_RIGHTS: Record<string, string> = {
+  '/': 'dashboard_access',
+  '/sales': 'sales_access',
+  '/inventory': 'inventory_access',
+  '/production': 'production_access',
+  '/users': 'users_access',
+  '/analytics': 'analytics_access',
+  '/filter': 'filter_access',
+};
+
+const NAV_ITEMS = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Sales (POS)', path: '/sales', icon: ShoppingCart },
   { name: 'Inventory', path: '/inventory', icon: Package },
@@ -27,54 +37,59 @@ const navItems = [
   { name: 'Filter', path: '/filter', icon: FilterIcon },
 ];
 
+function getInitials(name?: string): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, company } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  
-  // Improved theme state with system preference fallback
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Sync theme with localStorage and system preference on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-    setTheme(initialTheme);
+    setTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
   }, []);
 
-  // Apply theme to root + persist
   useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.setAttribute('data-theme', theme); // Bonus: data attribute for CSS vars if needed
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    if (navigator.vibrate) navigator.vibrate(50);
+  };
 
   const handleLogout = async () => {
     await auth.signOut();
     navigate('/login');
   };
 
-  const currentPage =
-    navItems.find(item => item.path === location.pathname)?.name || 'App';
+  const navItems = useMemo(() => {
+    const rights = user?.rights ?? [];
+    return NAV_ITEMS.filter(item => {
+      const required = ROUTE_RIGHTS[item.path];
+      if (!required) return true;
+      return rights.includes(required);
+    });
+  }, [user]);
 
-  // Smooth theme toggle with haptic feedback (mobile-friendly)
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    // Optional: Add haptic feedback for mobile
-    if (navigator.vibrate) navigator.vibrate(50);
-  };
+  const currentPage =
+    NAV_ITEMS.find(i => i.path === location.pathname)?.name || 'App';
+
+  const userInitials = getInitials(user?.userName);
 
   return (
-    <div className="
-      relative h-dvh overflow-hidden flex font-sans
-      bg-slate-50 text-slate-900
-      dark:bg-slate-950 dark:text-slate-100
-    ">
+    <div className="relative h-dvh overflow-hidden flex font-sans bg-slate-100 text-slate-900 dark:bg-[#0a0f1e] dark:text-slate-100">
+
       {/* Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -83,34 +98,52 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar - Fixed some redundant dark classes */}
+      {/* ── SIDEBAR ── */}
       <aside
         className={`
           fixed top-0 left-0 z-50 w-64 h-dvh
-          transform transition-transform duration-200 ease-in-out shrink-0
-          bg-slate-900/95 backdrop-blur-sm text-white border-r border-slate-800/50
+          transform transition-transform duration-300 ease-in-out shrink-0
           lg:translate-x-0
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="h-full flex flex-col overflow-hidden">
+        {/* Glass card */}
+        <div className="h-full flex flex-col overflow-hidden
+          bg-white/90 dark:bg-slate-900/90
+          backdrop-blur-xl
+          border-r border-slate-200/60 dark:border-slate-700/40
+          shadow-[4px_0_32px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_32px_rgba(0,0,0,0.4)]
+        ">
+
           {/* Logo */}
-          <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg">
+          <div className="px-6 py-5 flex items-center gap-3 border-b border-slate-200/60 dark:border-slate-700/40">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30 text-white">
               O
             </div>
-            <span className="font-bold tracking-tight text-xl bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
-              OptimaPOS
-            </span>
+            <div>
+              <span className="font-black tracking-tight text-base text-slate-900 dark:text-white">
+                OptimaPOS
+              </span>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 leading-none mt-0.5">
+                by Optimabyte
+              </p>
+            </div>
           </div>
 
-          {/* Nav */}
-          <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+          {/* Section label */}
+          <div className="px-5 pt-5 pb-2">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600">
+              Navigation
+            </p>
+          </div>
+
+          {/* NAV */}
+          <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto pb-4">
             {navItems.map(item => {
               const isActive = location.pathname === item.path;
               return (
@@ -119,140 +152,161 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   to={item.path}
                   onClick={() => setSidebarOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
+                    relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
+                    transition-all duration-200 group overflow-hidden
                     ${isActive
-                      ? 'bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white shadow-lg shadow-blue-500/25'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 backdrop-blur-sm'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                     }
                   `}
                 >
-                  <item.icon className={`w-4 h-4 ${isActive ? 'drop-shadow-sm' : ''}`} />
-                  <span className="group-hover:translate-x-1 transition-transform">{item.name}</span>
+                  {/* Active left glow bar */}
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white/50 rounded-r-full" />
+                  )}
+
+                  <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'drop-shadow-sm' : ''}`} />
+                  <span className="group-hover:translate-x-0.5 transition-transform duration-200">
+                    {item.name}
+                  </span>
+
+                  {/* Hover shimmer */}
+                  {!isActive && (
+                    <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300
+                      bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+                  )}
                 </Link>
               );
             })}
           </nav>
 
-          {/* User + Logout */}
-          <div className="p-4 border-t border-slate-800/50">
-            <div className="flex items-center gap-3 mb-6 px-2">
-              <div className="
-                w-10 h-10 rounded-2xl flex items-center justify-center
-                text-xs font-bold uppercase tracking-wider
-                bg-gradient-to-br from-slate-700 to-slate-800 ring-2 ring-slate-700/50 shadow-lg
-                shadow-slate-900/25
-              ">
-                {user?.userName?.[0] || '?'}
+          {/* USER PANEL */}
+          <div className="p-4 border-t border-slate-200/60 dark:border-slate-700/40">
+            {/* User info */}
+            <div className="flex items-center gap-3 mb-3 px-2 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black uppercase tracking-wider shrink-0
+                bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20">
+                {userInitials}
               </div>
-
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold truncate text-slate-200">
+                <p className="text-sm font-bold truncate text-slate-800 dark:text-slate-200">
                   {user?.userName || 'User'}
                 </p>
-                <p className="text-xs uppercase font-black tracking-widest truncate
-                  bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent
-                ">
-                  {user?.role || 'Admin'}
+                <p className="text-[9px] uppercase font-black tracking-widest truncate text-blue-500 dark:text-blue-400">
+                  {user?.role || 'Role'}
                 </p>
               </div>
             </div>
 
             <button
               onClick={handleLogout}
-              className="
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-[1.02]
-                text-slate-400 hover:text-slate-100 hover:bg-slate-800/75 backdrop-blur-sm shadow-sm hover:shadow-md
-              "
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+              text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400
+              hover:bg-red-50 dark:hover:bg-red-500/10 group"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               <span>Sign Out</span>
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main */}
+      {/* ── MAIN ── */}
       <main className="flex-1 min-w-0 h-dvh lg:ml-64 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="
-          h-16 flex items-center justify-between px-6 lg:px-8 shrink-0 backdrop-blur-sm
-          bg-white/80 border-b border-slate-200/50 shadow-sm
-          dark:bg-slate-900/95 dark:border-slate-800/50 dark:shadow-slate-900/20
+
+        {/* ── HEADER ── */}
+        <header className="h-16 shrink-0 flex items-center justify-between px-5 lg:px-8
+          bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl
+          border-b border-slate-200/60 dark:border-slate-700/40
+          shadow-sm dark:shadow-[0_1px_0_rgba(255,255,255,0.04)]
         ">
+
           {/* Left */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="
-                lg:hidden p-2.5 rounded-xl backdrop-blur-sm
-                text-slate-500 hover:bg-slate-100/80 hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-200
-                dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:shadow-slate-900/30
-              "
-              aria-label="Open menu"
+              className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <h2 className="
-              hidden md:block text-xs font-black uppercase tracking-widest truncate max-w-xs
-              text-slate-500/80 dark:text-slate-400
-            ">
-              {company?.name}
-            </h2>
-
-            <div className="hidden md:block h-4 w-px bg-slate-200/50 dark:bg-slate-700/50" />
-
-            <h1 className="text-xl lg:text-2xl font-black bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-50 pr-2">
-              {currentPage}
-            </h1>
+            {/* Page breadcrumb */}
+            <div className="flex items-center gap-2.5">
+              <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600">
+                {company?.name || 'Company'}
+              </span>
+              <span className="hidden sm:block text-slate-300 dark:text-slate-700 text-xs">/</span>
+              <h1 className="text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
+                {currentPage}
+              </h1>
+            </div>
           </div>
 
           {/* Right */}
-          <div className="flex items-center gap-4 lg:gap-6">
-            <div className="hidden sm:flex flex-col items-end gap-0.5">
-              <span className="
-                text-xs font-black uppercase tracking-widest
-                text-slate-400/70 dark:text-slate-500/70
-              ">
-                System Status
-              </span>
-              <span className="text-sm text-emerald-500/90 flex items-center gap-1.5 font-black tracking-wide bg-emerald-500/10 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                OPTIMABYTE
+          <div className="flex items-center gap-3">
+
+            {/* Parent company label */}
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg
+              bg-slate-100 dark:bg-slate-800/60
+              border border-slate-200/80 dark:border-slate-700/50">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                Optimabyte Softwares
               </span>
             </div>
 
-            {/* Enhanced Theme Toggle */}
+            {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              className="
-                p-2.5 rounded-xl transition-all duration-200 hover:scale-110 hover:shadow-lg
-                bg-white/50 hover:bg-white/80 backdrop-blur-sm border border-slate-200/50
-                dark:bg-slate-800/50 dark:hover:bg-slate-800/80 dark:border-slate-700/50
-                shadow-sm hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/30
-                active:scale-95
-              "
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              className="p-2.5 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95
+              bg-slate-100 dark:bg-slate-800/60
+              border border-slate-200/80 dark:border-slate-700/50
+              text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
             >
-              <motion.div
-                animate={{ rotate: theme === 'dark' ? 40 : 320 }}
-                transition={{ duration: 0.2 }}
-              >
+              <AnimatePresence mode="wait" initial={false}>
                 {theme === 'dark' ? (
-                  <Sun className="w-5 h-5 text-amber-400" />
+                  <motion.div key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  </motion.div>
                 ) : (
-                  <Moon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                  <motion.div key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                    <Moon className="w-4 h-4" />
+                  </motion.div>
                 )}
-              </motion.div>
+              </AnimatePresence>
             </button>
+
+            {/* User avatar */}
+            <div className="relative group cursor-default">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black uppercase tracking-wider
+                bg-gradient-to-br from-blue-500 to-indigo-600 text-white
+                shadow-md shadow-blue-500/25
+                ring-2 ring-white dark:ring-slate-900
+                transition-transform duration-200 group-hover:scale-105">
+                {userInitials}
+              </div>
+              {/* Tooltip on hover */}
+              <div className="absolute right-0 top-full mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap pointer-events-none
+                opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0
+                transition-all duration-200
+                bg-slate-900 dark:bg-slate-700 text-white shadow-xl z-50">
+                {user?.userName || 'User'}
+                <div className="absolute -top-1 right-3 w-2 h-2 bg-slate-900 dark:bg-slate-700 rotate-45" />
+              </div>
+            </div>
           </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto min-h-full">
-            {children}
+        {/* ── CONTENT ── */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Subtle top decoration */}
+          <div className="pointer-events-none fixed top-16 left-0 lg:left-64 right-0 h-px
+            bg-gradient-to-r from-transparent via-blue-500/20 to-transparent z-10" />
+
+          <div className="p-5 lg:p-8">
+            <div className="max-w-7xl mx-auto min-h-full">
+              {children}
+            </div>
           </div>
         </div>
       </main>

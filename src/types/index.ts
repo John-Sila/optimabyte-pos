@@ -21,6 +21,7 @@ export interface User {
   userName: string;
   role: UserRole;
   status: UserStatus;
+  rights: string[];
   employeeId: string;
   permissions: string[];
   createdAt: Timestamp;
