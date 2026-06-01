@@ -21,6 +21,7 @@ import {
 import {
   Download,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   ShoppingBag,
   PieChart as PieIcon
@@ -67,23 +68,21 @@ const COLORS = ['#F97316', '#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#14B8A6'
 function flattenNestedMap(obj?: NestedStats): FlattenedPoint[] {
   const out: FlattenedPoint[] = [];
   if (!obj) return out;
-
   for (const [year, months] of Object.entries(obj)) {
     for (const [month, value] of Object.entries(months || {})) {
-      out.push({
-        year,
-        month,
-        value: Number(value || 0)
-      });
+      out.push({ year, month, value: Number(value || 0) });
     }
   }
-
   return out;
 }
 
 function monthIndex(month: string) {
   const idx = MONTH_ORDER.findIndex((m) => m.toLowerCase() === month.toLowerCase());
   return idx === -1 ? 99 : idx;
+}
+
+function currentYear() {
+  return String(new Date().getFullYear());
 }
 
 export default function Analytics() {
@@ -98,10 +97,7 @@ export default function Analytics() {
     const invRef = collection(db, 'companies', company.id, 'inventory');
     const unsubInv = onSnapshot(invRef, (snap) => {
       setInventoryItems(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data()
-        })) as InventoryDoc[]
+        snap.docs.map((d) => ({ id: d.id, ...d.data() })) as InventoryDoc[]
       );
     });
 
@@ -110,10 +106,7 @@ export default function Analytics() {
       setGeneralStats((snap.data() || null) as GeneralStatsDoc | null);
     });
 
-    return () => {
-      unsubInv();
-      unsubStats();
-    };
+    return () => { unsubInv(); unsubStats(); };
   }, [company]);
 
   const chartRows: ChartRow[] = useMemo(() => {
@@ -145,35 +138,24 @@ export default function Analytics() {
   }, [inventoryItems, generalStats]);
 
   const categoryData = useMemo(() => {
-    const items = inventoryItems
+    return inventoryItems
       .map((item) => {
         const revenueTotal = Object.values(item.revenues || {}).reduce((acc, yearMap) => {
           return acc + Object.values(yearMap || {}).reduce((s, v) => s + Number(v || 0), 0);
         }, 0);
-
-        return {
-          name: item.name || 'Unknown',
-          value: revenueTotal
-        };
+        return { name: item.name || 'Unknown', value: revenueTotal };
       })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 4);
-
-    return items;
   }, [inventoryItems]);
 
   const categoryTotal = useMemo(() => {
     return categoryData.reduce((sum, item) => sum + Number(item.value || 0), 0);
   }, [categoryData]);
 
-  const totalRevenue = useMemo(() => {
-    return chartRows.reduce((sum, row) => sum + row.revenue, 0);
-  }, [chartRows]);
-
-  const totalSales = useMemo(() => {
-    return chartRows.reduce((sum, row) => sum + row.sales, 0);
-  }, [chartRows]);
+  const totalRevenue = useMemo(() => chartRows.reduce((sum, row) => sum + row.revenue, 0), [chartRows]);
+  const totalSales = useMemo(() => chartRows.reduce((sum, row) => sum + row.sales, 0), [chartRows]);
 
   const avgSaleValue = totalSales > 0 ? (totalRevenue / totalSales).toFixed(2) : '0.00';
   const bestCategory = categoryData[0]?.name || 'N/A';
@@ -181,23 +163,49 @@ export default function Analytics() {
   const peakRevenueMonth = useMemo(() => {
     const points = flattenNestedMap(generalStats?.revenues);
     if (!points.length) return 'N/A';
-
-    const best = points.reduce((currentBest, point) => {
-      return point.value > currentBest.value ? point : currentBest;
-    }, points[0]);
-
+    const best = points.reduce((b, p) => p.value > b.value ? p : b, points[0]);
     return `${best.month} ${best.year}`;
   }, [generalStats]);
 
   const peakSalesMonth = useMemo(() => {
     const points = flattenNestedMap(generalStats?.soldPieces);
     if (!points.length) return 'N/A';
-
-    const best = points.reduce((currentBest, point) => {
-      return point.value > currentBest.value ? point : currentBest;
-    }, points[0]);
-
+    const best = points.reduce((b, p) => p.value > b.value ? p : b, points[0]);
     return `${best.month} ${best.year}`;
+  }, [generalStats]);
+
+  // Worst month THIS YEAR by sold items
+  const worstSalesMonthThisYear = useMemo(() => {
+    const thisYear = currentYear();
+    const points = flattenNestedMap(generalStats?.soldPieces).filter((p) => p.year === thisYear);
+    if (!points.length) return 'N/A';
+    const worst = points.reduce((b, p) => p.value < b.value ? p : b, points[0]);
+    return `${worst.month} ${worst.year}`;
+  }, [generalStats]);
+
+  // Worst month THIS YEAR by revenue
+  const worstRevenueMonthThisYear = useMemo(() => {
+    const thisYear = currentYear();
+    const points = flattenNestedMap(generalStats?.revenues).filter((p) => p.year === thisYear);
+    if (!points.length) return 'N/A';
+    const worst = points.reduce((b, p) => p.value < b.value ? p : b, points[0]);
+    return `${worst.month} ${worst.year}`;
+  }, [generalStats]);
+
+  // Worst month OVERALL by sold items
+  const worstSalesMonthOverall = useMemo(() => {
+    const points = flattenNestedMap(generalStats?.soldPieces);
+    if (!points.length) return 'N/A';
+    const worst = points.reduce((b, p) => p.value < b.value ? p : b, points[0]);
+    return `${worst.month} ${worst.year}`;
+  }, [generalStats]);
+
+  // Worst month OVERALL by revenue
+  const worstRevenueMonthOverall = useMemo(() => {
+    const points = flattenNestedMap(generalStats?.revenues);
+    if (!points.length) return 'N/A';
+    const worst = points.reduce((b, p) => p.value < b.value ? p : b, points[0]);
+    return `${worst.month} ${worst.year}`;
   }, [generalStats]);
 
   const tooltipStyle = {
@@ -213,21 +221,32 @@ export default function Analytics() {
     setExporting(true);
     try {
       const summary = {
-        totalRevenue,
-        totalSales,
-        avgSaleValue,
-        bestCategory,
-        peakRevenueMonth,
-        peakSalesMonth,
+        totalRevenue, totalSales, avgSaleValue, bestCategory,
+        peakRevenueMonth, peakSalesMonth,
+        worstSalesMonthThisYear, worstRevenueMonthThisYear,
+        worstSalesMonthOverall, worstRevenueMonthOverall,
         items: inventoryItems.length
       };
-
       console.log('PDF export placeholder:', summary);
       alert('PDF export wiring is ready. Install and use pdf-lib to generate the document bytes.');
     } finally {
       setExporting(false);
     }
   };
+
+  const topStats = [
+    { label: 'Avg Sale Value',          value: `$${avgSaleValue}`,        icon: DollarSign,  color: 'text-orange-500' },
+    { label: 'Best Category',           value: bestCategory,              icon: ShoppingBag, color: 'text-blue-500'   },
+    { label: 'Peak Month (Revenue)',     value: peakRevenueMonth,          icon: TrendingUp,  color: 'text-emerald-500'},
+    { label: 'Peak Month (Product)',     value: peakSalesMonth,            icon: TrendingUp,  color: 'text-purple-500' },
+  ];
+
+  const bottomStats = [
+    { label: 'Worst Month This Year (Items)',   value: worstSalesMonthThisYear,   icon: TrendingDown, color: 'text-rose-400'   },
+    { label: 'Worst Month This Year (Revenue)', value: worstRevenueMonthThisYear, icon: TrendingDown, color: 'text-rose-500'   },
+    { label: 'Worst Month Ever (Items)',        value: worstSalesMonthOverall,    icon: TrendingDown, color: 'text-red-400'    },
+    { label: 'Worst Month Ever (Revenue)',      value: worstRevenueMonthOverall,  icon: TrendingDown, color: 'text-red-600'    },
+  ];
 
   return (
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
@@ -252,13 +271,9 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Avg Sale Value', value: `$${avgSaleValue}`, icon: DollarSign, color: 'text-orange-500' },
-          { label: 'Best Category', value: bestCategory, icon: ShoppingBag, color: 'text-blue-500' },
-          { label: 'Peak Month (Revenue)', value: peakRevenueMonth, icon: TrendingUp, color: 'text-emerald-500' },
-          { label: 'Peak Month (Product)', value: peakSalesMonth, icon: TrendingUp, color: 'text-purple-500' }
-        ].map((stat) => (
+      {/* Top 4 stats */}
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {topStats.map((stat) => (
           <div
             key={stat.label}
             className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -266,11 +281,33 @@ export default function Analytics() {
             <div className={`${stat.color} opacity-60`}>
               <stat.icon className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-slate-400 dark:text-slate-500">
                 {stat.label}
               </p>
-              <p className="text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
+              <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
+                {stat.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom 4 worst-month stats */}
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {bottomStats.map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-center gap-4 rounded-xl border border-rose-100 bg-rose-50/50 p-5 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
+          >
+            <div className={`${stat.color} opacity-70`}>
+              <stat.icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest leading-none text-rose-400 dark:text-rose-500">
+                {stat.label}
+              </p>
+              <p className="truncate text-xl font-black leading-tight text-slate-900 dark:text-slate-100">
                 {stat.value}
               </p>
             </div>
@@ -287,11 +324,7 @@ export default function Analytics() {
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartRows}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#f1f5f9"
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
@@ -376,11 +409,7 @@ export default function Analytics() {
           <div className="h-72 w-full p-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartRows}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#f1f5f9"
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
