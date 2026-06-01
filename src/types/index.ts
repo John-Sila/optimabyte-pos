@@ -15,6 +15,7 @@ export type UserRole = 'owner' | 'admin' | 'cashier' | 'manager';
 export type UserStatus = 'active' | 'suspended';
 
 export interface User {
+  isActive: boolean;
   uid: string;
   email: string;
   userName: string;
@@ -69,6 +70,7 @@ export interface InventoryItem {
   unitCost: number;
   lastUpdated: Timestamp;
   companyId: string;
+  photoURL?: string;
 }
 
 export interface Product {

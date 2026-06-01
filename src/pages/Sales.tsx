@@ -26,6 +26,7 @@ import { InventoryItem } from '../types';
 import { notify } from '../lib/toast';
 import { AnimatePresence, motion } from 'motion/react';
 
+
 type ReceiptItem = {
   itemId: string;
   name: string;
@@ -33,6 +34,7 @@ type ReceiptItem = {
   unitPrice: number;
   total: number;
 };
+
 
 export default function Sales() {
   const { company, user } = useAuth();
@@ -47,6 +49,7 @@ export default function Sales() {
   const [newCustomerName, setNewCustomerName] = useState('');
   const [customers, setCustomers] = useState<{ id: string; customerName: string }[]>([]);
 
+
   useEffect(() => {
     if (!company) return;
     const ref = collection(db, 'companies', company.id, 'inventory');
@@ -54,6 +57,7 @@ export default function Sales() {
       setInventory(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
     });
   }, [company]);
+
 
   useEffect(() => {
     if (!company) return;
@@ -68,6 +72,7 @@ export default function Sales() {
     return () => unsubscribeCustomers();
   }, [company]);
 
+
   const filteredInventory = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return inventory;
@@ -77,18 +82,22 @@ export default function Sales() {
     );
   }, [inventory, search]);
 
+
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.total, 0),
     [cart]
   );
 
+
   const tax = subtotal * 0.16;
   const total = subtotal + tax;
+
 
   const openQuantityDialog = (item: InventoryItem) => {
     setSelectedItem(item);
     setQtyInput('1');
   };
+
 
   const addToCart = () => {
     if (!selectedItem) return;
@@ -127,9 +136,11 @@ export default function Sales() {
     setQtyInput('');
   };
 
+
   const removeCartItem = (itemId: string) => {
     setCart(prev => prev.filter(item => item.itemId !== itemId));
   };
+
 
   const changeCartQty = (itemId: string, delta: number) => {
     const item = cart.find(i => i.itemId === itemId);
@@ -151,7 +162,9 @@ export default function Sales() {
     );
   };
 
+
   const clearReceipt = () => setCart([]);
+
 
   const handleSaveSale = async () => {
     if (!company || cart.length === 0) return;
@@ -340,6 +353,7 @@ export default function Sales() {
     }
   };
 
+
   const canSave =
     cart.length > 0 &&
     !processing &&
@@ -347,6 +361,7 @@ export default function Sales() {
       (selectedCustomer !== '' && selectedCustomer !== 'OTHER') ||
       (selectedCustomer === 'OTHER' && newCustomerName.trim() !== '')
     );
+
 
   return (
     <div className="h-[calc(100vh-160px)] flex gap-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -399,8 +414,16 @@ export default function Sales() {
               className="group flex flex-col justify-between rounded-2xl border bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-blue-500/50 disabled:opacity-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-400/50"
             >
               <div>
-                <div className="mb-2 flex aspect-square w-full items-center justify-center rounded-xl bg-slate-50 text-slate-300 transition-transform group-hover:scale-[1.02] dark:bg-slate-800 dark:text-slate-500">
-                  <Package className="w-8 h-8" />
+                <div className="mb-2 flex aspect-square w-full items-center justify-center rounded-xl bg-slate-50 text-slate-300 transition-transform group-hover:scale-[1.02] dark:bg-slate-800 dark:text-slate-500 overflow-hidden">
+                  {item.photoURL ? (
+                    <img
+                      src={item.photoURL}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Package className="w-8 h-8" />
+                  )}
                 </div>
                 <h3 className="text-sm font-bold leading-tight text-slate-800 line-clamp-2 dark:text-slate-100">
                   {item.name}

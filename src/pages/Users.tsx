@@ -6,12 +6,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { User, UserRole } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
+
 export default function Users() {
   const { company, user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+
 
   const [formData, setFormData] = useState({
     email: '',
@@ -21,6 +23,7 @@ export default function Users() {
     password: ''
   });
 
+
   useEffect(() => {
     if (!company) return;
     const ref = collection(db, 'companies', company.id, 'users');
@@ -28,6 +31,7 @@ export default function Users() {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as User)));
     });
   }, [company]);
+
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -38,17 +42,18 @@ export default function Users() {
       const email = String(u.email || '').toLowerCase();
       const role = String(u.role || '').toLowerCase();
       const employeeId = String(u.employeeId || '').toLowerCase();
-      const status = String(u.status || '').toLowerCase();
+      const isActive = String(u.isActive ?? u.status === 'active').toLowerCase();
 
       return (
         name.includes(q) ||
         email.includes(q) ||
         role.includes(q) ||
         employeeId.includes(q) ||
-        status.includes(q)
+        isActive.includes(q)
       );
     });
   }, [users, search]);
+
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +68,7 @@ export default function Users() {
         email: formData.email,
         userName: formData.userName,
         role: formData.role,
-        status: 'active',
+        isActive: true,
         employeeId: formData.employeeId,
         permissions: [],
         createdAt: serverTimestamp() as any,
@@ -88,6 +93,11 @@ export default function Users() {
       setLoading(false);
     }
   };
+
+  const isActiveUser = (user: User) => {
+    return user.isActive ?? user.status === 'active';
+  };
+
 
   return (
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
@@ -135,57 +145,60 @@ export default function Users() {
             </thead>
 
             <tbody className="divide-y divide-slate-50 text-sm dark:divide-slate-800">
-              {filteredUsers.map(u => (
-                <tr key={u.uid} className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600 transition-colors group-hover:bg-blue-100 group-hover:text-blue-600 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-blue-500/20 dark:group-hover:text-blue-300">
-                        {u.userName?.[0] || '?'}
+              {filteredUsers.map(u => {
+                const active = isActiveUser(u);
+                return (
+                  <tr key={u.uid} className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600 transition-colors group-hover:bg-blue-100 group-hover:text-blue-600 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-blue-500/20 dark:group-hover:text-blue-300">
+                          {u.userName?.[0] || '?'}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100">{u.userName}</div>
+                          <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{u.email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{u.userName}</div>
-                        <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{u.email}</div>
-                      </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-                      <span className="text-xs font-medium capitalize text-slate-700 dark:text-slate-300">
-                        {u.role}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                        <span className="text-xs font-medium capitalize text-slate-700 dark:text-slate-300">
+                          {u.role}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                          active
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
+                            : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+                        }`}
+                      >
+                        <Activity className="w-3 h-3" />
+                        {active ? 'active' : 'inactive'}
                       </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                        u.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
-                          : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300'
-                      }`}
-                    >
-                      <Activity className="w-3 h-3" />
-                      {u.status}
-                    </span>
-                  </td>
+                    <td className="px-6 py-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      {u.employeeId || 'N/A'}
+                    </td>
 
-                  <td className="px-6 py-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                    {u.employeeId || 'N/A'}
-                  </td>
+                    <td className="px-6 py-4 text-xs font-medium text-slate-400 dark:text-slate-500">
+                      {u.createdAt instanceof Object ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    </td>
 
-                  <td className="px-6 py-4 text-xs font-medium text-slate-400 dark:text-slate-500">
-                    {u.createdAt instanceof Object ? u.createdAt.toDate().toLocaleDateString() : 'N/A'}
-                  </td>
-
-                  <td className="px-6 py-4 text-right">
-                    <button className="rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4 text-right">
+                      <button className="rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {filteredUsers.length === 0 && (
                 <tr>

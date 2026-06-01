@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -10,7 +10,8 @@ import {
   EllipsisVertical,
   Trash2,
   CirclePlus,
-  Loader2
+  Loader2,
+  Camera
 } from 'lucide-react';
 import {
   collection,
@@ -22,14 +23,15 @@ import {
   deleteDoc,
   updateDoc,
   increment,
-  serverTimestamp,
+  servertimestamp,
   query,
-  orderBy
+  orderBy,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { InventoryItem, Product } from '../types';
-import { notify } from '../lib/toast';
+import notify from '../lib/toast';
 import { AnimatePresence, motion } from 'motion/react';
 
 type InventoryFormState = {
@@ -50,13 +52,18 @@ export default function Inventory() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [stockModalItem, setStockModalItem] = useState<InventoryItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<InventoryItem | null>(null);
+  const [photoConfirmItem, setPhotoConfirmItem] = useState<InventoryItem | null>(null);
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [stockQty, setStockQty] = useState('');
   const [stockPrice, setStockPrice] = useState('');
   const [stockSupplier, setStockSupplier] = useState('');
   const [newSupplierName, setNewSupplierName] = useState('');
   const [stockProcessing, setStockProcessing] = useState(false);
   const [creatingItem, setCreatingItem] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [suppliers, setSuppliers] = useState<{ id: string; supplierName: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState<InventoryFormState>({
     name: '',
     productId: '',
@@ -180,6 +187,80 @@ export default function Inventory() {
     resetForm();
   };
 
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setSelectedPhotoFile(file);
+    setPhotoPreview(previewUrl);
+  };
+
+  const handleConfirmPhotoUpload = async () => {
+    if (!selectedPhotoFile || !photoConfirmItem) return;
+
+    await uploadPhoto(selectedPhotoFile, photoConfirmItem);
+  };
+
+  const handleCancelPhotoUpload = () => {
+    setSelectedPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoConfirmItem(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadPhoto = async (file: File, item: InventoryItem) => {
+    if (!company) return;
+
+    setUploadingPhoto(true);
+
+    try {
+      const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+        throw new Error("Cloudinary environment variables not configured");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Cloudinary error:", data);
+        throw new Error(data?.error?.message || "Cloudinary upload failed");
+      }
+
+      const inventoryRef = doc(db, 'companies', company.id, 'inventory', item.id);
+      await updateDoc(inventoryRef, {
+        photoURL: data.secure_url,
+        lastUpdated: serverTimestamp()
+      });
+
+      notify.success("Photo uploaded successfully");
+      setOpenMenuId(null);
+      handleCancelPhotoUpload();
+    } catch (err) {
+      console.error(err);
+      notify.error(err instanceof Error ? err.message : "Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const lowStockCount = items.filter(item => item.quantity < item.reorderLevel).length;
 
   const inventoryValue = items.reduce((total, item) => {
@@ -188,6 +269,14 @@ export default function Inventory() {
 
   return (
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={handlePhotoSelect}
+      />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
@@ -289,9 +378,18 @@ export default function Inventory() {
               {filteredItems.map(item => (
                 <tr key={item.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <td className="px-6 py-4">
-                    <span className="block font-bold leading-tight text-slate-800 dark:text-slate-100">
-                      {item.name}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {item.photoURL && (
+                        <img
+                          src={item.photoURL}
+                          alt={item.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                        />
+                      )}
+                      <span className="block font-bold leading-tight text-slate-800 dark:text-slate-100">
+                        {item.name}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                     {item.productId}
@@ -341,7 +439,7 @@ export default function Inventory() {
 
                       {openMenuId === item.id && (
                         <div
-                          className="absolute right-full top-0 z-20 mr-2 w-36 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
+                          className="absolute right-full top-0 z-20 mr-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
                           onMouseLeave={() => setOpenMenuId(null)}
                         >
                           <button
@@ -356,13 +454,32 @@ export default function Inventory() {
                             <CirclePlus className="w-4 h-4" />
                             Add stock
                           </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              setPhotoConfirmItem(item);
+                              setSelectedPhotoFile(null);
+                              setPhotoPreview(null);
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = '';
+                              }
+                              fileInputRef.current?.click();
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Add Photo
+                          </button>
+                          
                           <button
                             type="button"
                             onClick={() => {
                               setOpenMenuId(null);
                               setDeleteConfirmItem(item);
                             }}
-                            className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10 border-t border-slate-100 dark:border-slate-800"
                           >
                             <Trash2 className="w-4 h-4" />
                             Delete item
@@ -385,7 +502,7 @@ export default function Inventory() {
         </div>
       </div>
       
-      {/* add inventory item */}
+      {/* Add Inventory Item Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
@@ -505,7 +622,7 @@ export default function Inventory() {
         )}
       </AnimatePresence>
 
-      {/* delete inventory item */}
+      {/* Delete Inventory Item Modal */}
       <AnimatePresence>
         {deleteConfirmItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
@@ -558,6 +675,7 @@ export default function Inventory() {
                     if (!company || !deleteConfirmItem) return;
                     await deleteDoc(doc(db, 'companies', company.id, 'inventory', deleteConfirmItem.id));
                     setDeleteConfirmItem(null);
+                    notify.success('Item deleted successfully');
                   }}
                   className="flex items-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-red-600"
                 >
@@ -570,6 +688,7 @@ export default function Inventory() {
         )}
       </AnimatePresence>
 
+      {/* Add Stock Modal */}
       <AnimatePresence>
         {stockModalItem && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
@@ -755,10 +874,130 @@ export default function Inventory() {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>  
-          
-    
-    
+      </AnimatePresence>
+
+      {/* Photo Upload Confirmation Modal with Preview */}
+      <AnimatePresence>
+        {photoConfirmItem && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              onClick={handleCancelPhotoUpload}
+            />
+
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-5 dark:border-slate-800 dark:bg-slate-950/40">
+                <div>
+                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
+                    {photoPreview ? 'Confirm Photo' : 'Add Photo'}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {photoPreview
+                      ? 'Review the photo below before uploading'
+                      : `Select an image for ${photoConfirmItem.name}`}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCancelPhotoUpload}
+                  className="rounded-xl p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                {!photoPreview ? (
+                  // State: No photo selected yet
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800">
+                      <Camera className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">
+                      Click below to select an image file (JPG, PNG, or WebP)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
+                    >
+                      <Camera className="w-4 h-4" />
+                      Select Image
+                    </button>
+                  </div>
+                ) : (
+                  // State: Photo selected, show preview
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="w-full h-64 object-cover"
+                      />
+                    </div>
+                    <p className="text-sm text-center text-slate-500 dark:text-slate-400">
+                      Is this the photo you want to use?
+                    </p>
+                    <div className="flex items-center gap-3 w-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPhotoFile(null);
+                          setPhotoPreview(null);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
+                          fileInputRef.current?.click();
+                        }}
+                        disabled={uploadingPhoto}
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmPhotoUpload}
+                        disabled={uploadingPhoto}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-sm transition-all active:scale-95 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      >
+                        {uploadingPhoto ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            Upload
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-6 pt-0">
+                <button
+                  type="button"
+                  onClick={handleCancelPhotoUpload}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

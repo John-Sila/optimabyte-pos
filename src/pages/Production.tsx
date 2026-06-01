@@ -35,7 +35,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { ProductionJob } from '../types';
 import { notify } from '../lib/toast';
 
+
 type CustomerOption = { id: string; customerName: string };
+
 
 type ProductionTxn = {
   id: string;
@@ -51,7 +53,10 @@ type ProductionTxn = {
   totalProducts?: number;
   dateStarted?: any;
   dateCompleted?: any;
+  inventoryId?: string;
+  inventoryName?: string;
 };
+
 
 export default function Production() {
   const { company, user } = useAuth();
@@ -70,6 +75,7 @@ export default function Production() {
   const [confirmType, setConfirmType] = useState<'complete' | 'delete' | null>(null);
   const [confirmJob, setConfirmJob] = useState<ProductionTxn | null>(null);
   const [confirmProcessing, setConfirmProcessing] = useState(false);
+
 
   useEffect(() => {
     if (!company) return;
@@ -101,8 +107,10 @@ export default function Production() {
     };
   }, [company]);
 
+
   const activeJobs = jobs.filter((job) => job.status === 'Incomplete' && (job.mvt || 'Production') === 'Production');
   const historicalJobs = jobs.filter((job) => job.status === 'Completed' && (job.mvt || 'Production') === 'Production');
+
 
   const canCreate =
     !!selectedItem &&
@@ -114,6 +122,7 @@ export default function Production() {
     ) &&
     !processing;
 
+
   const openNewJob = () => {
     setShowNewJob(true);
     setSelectedItem('');
@@ -121,6 +130,7 @@ export default function Production() {
     setSelectedCustomer('');
     setNewCustomerName('');
   };
+
 
   const createProductionJob = async () => {
     if (!company || !canCreate) return;
@@ -187,6 +197,7 @@ export default function Production() {
     }
   };
 
+
   const completeJob = async (job: ProductionTxn): Promise<void> => {
     if (!company || !job.id) return;
 
@@ -221,6 +232,7 @@ export default function Production() {
     }
   };
 
+
   const deleteJob = async (jobId: string): Promise<void> => {
     if (!company || !jobId) return;
 
@@ -231,6 +243,14 @@ export default function Production() {
       console.error(err);
     }
   };
+
+
+  const getInventoryItemPhoto = (inventoryId?: string) => {
+    if (!inventoryId) return null;
+    const item = inventoryItems.find((i) => i.id === inventoryId);
+    return item?.photoURL || null;
+  };
+
 
   return (
     <div className="h-full space-y-6 text-slate-900 dark:text-slate-100">
@@ -313,96 +333,115 @@ export default function Production() {
                         String(job.items?.join(' ') || '').toLowerCase().includes(q)
                       );
                     })
-                    .map((job) => (
-                      <tr key={job.id} className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-slate-900 dark:text-slate-100">
-                          {job.id.slice(0, 7)}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
-                          {job.cashier}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
-                          <div className="flex flex-col leading-tight">
-                            {job.items?.slice(0, 2).map((item, index) => (
-                              <span key={index}>{item}</span>
-                            ))}
-                            {job.items && job.items.length > 2 && <span>...</span>}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
-                          {job.customerName || '-'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                              job.status === 'Completed'
-                                ? 'border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-300'
-                                : 'border-orange-200 bg-orange-100 text-orange-700 dark:border-orange-900/60 dark:bg-orange-500/10 dark:text-orange-300'
-                            }`}
-                          >
-                            {job.status === 'Completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            {job.status}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 font-black text-slate-900 dark:text-slate-100">
-                          {job.totalProducts || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-xs font-medium text-slate-400 dark:text-slate-500">
-                          {job.dateStarted?.toDate?.().toLocaleString?.() || '-'}
-                        </td>
-                        <td className="relative whitespace-nowrap px-6 py-4 text-right">
-                          <button
-                            type="button"
-                            onMouseEnter={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
-                            onClick={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
-                            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
+                    .map((job) => {
+                      const photoUrl = getInventoryItemPhoto(job.inventoryId);
 
-                          <AnimatePresence>
-                            {openMenuId === job.id && (
-                              <motion.div
-                                onMouseLeave={() => setOpenMenuId(null)}
-                                initial={{ opacity: 0, scale: 0.95, y: -6 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: -6 }}
-                                transition={{ duration: 0.15 }}
-                                className="absolute right-6 top-10 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
-                              >
-                                {job.status !== 'Completed' && (
+                      return (
+                        <tr key={job.id} className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-slate-900 dark:text-slate-100">
+                            {job.id.slice(0, 7)}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
+                            {job.cashier}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              {photoUrl ? (
+                                <img
+                                  src={photoUrl}
+                                  alt={job.inventoryName || 'Product'}
+                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+                                  <Factory className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                                </div>
+                              )}
+                              <div className="flex flex-col leading-tight">
+                                {job.items?.slice(0, 2).map((item, index) => (
+                                  <span key={index} className="font-medium text-slate-600 dark:text-slate-300">
+                                    {item}
+                                  </span>
+                                ))}
+                                {job.items && job.items.length > 2 && <span className="text-slate-400 dark:text-slate-500">...</span>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
+                            {job.customerName || '-'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                                job.status === 'Completed'
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                  : 'border-orange-200 bg-orange-100 text-orange-700 dark:border-orange-900/60 dark:bg-orange-500/10 dark:text-orange-300'
+                              }`}
+                            >
+                              {job.status === 'Completed' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                              {job.status}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 font-black text-slate-900 dark:text-slate-100">
+                            {job.totalProducts || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-xs font-medium text-slate-400 dark:text-slate-500">
+                            {job.dateStarted?.toDate?.().toLocaleString?.() || '-'}
+                          </td>
+                          <td className="relative whitespace-nowrap px-6 py-4 text-right">
+                            <button
+                              type="button"
+                              onMouseEnter={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
+                              onClick={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
+                              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            <AnimatePresence>
+                              {openMenuId === job.id && (
+                                <motion.div
+                                  onMouseLeave={() => setOpenMenuId(null)}
+                                  initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute right-6 top-10 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900"
+                                >
+                                  {job.status !== 'Completed' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setConfirmJob(job);
+                                        setConfirmType('complete');
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                      Mark as complete
+                                    </button>
+                                  )}
+
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setConfirmJob(job);
-                                      setConfirmType('complete');
+                                      setConfirmType('delete');
                                       setOpenMenuId(null);
                                     }}
-                                    className="flex w-full items-center gap-2 px-4 py-3 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                                    className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10"
                                   >
-                                    <Check className="w-4 h-4" />
-                                    Mark as complete
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
                                   </button>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setConfirmJob(job);
-                                    setConfirmType('delete');
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:border-slate-800 dark:hover:bg-red-500/10"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </td>
-                      </tr>
-                    ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </td>
+                        </tr>
+                      );
+                    })}
 
                   {((activeTab === 'active' ? activeJobs : historicalJobs).filter((job) => {
                     const q = search.toLowerCase();

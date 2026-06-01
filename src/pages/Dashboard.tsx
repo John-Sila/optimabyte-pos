@@ -24,6 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'motion/react';
 import { notify } from '../lib/toast';
 
+
 type Transaction = {
   [x: string]: string;
   mvt: string;
@@ -35,7 +36,9 @@ type Transaction = {
   status: string;
   dateCompleted?: Timestamp;
   totalProducts?: number;
+  inventoryId?: string;
 };
+
 
 type MonthlyStats = {
   [x: string]: any;
@@ -47,6 +50,7 @@ type MonthlyStats = {
   revenues?: Record<string, Record<string, number>>;
 };
 
+
 export default function Dashboard() {
   const { company } = useAuth();
   const [stats, setStats] = useState<MonthlyStats>({});
@@ -56,6 +60,8 @@ export default function Dashboard() {
   const [topItems, setTopItems] = useState<{ name: string; qty: number }[]>([]);
   const [usersCount, setUsersCount] = useState(0);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+
 
   useEffect(() => {
     if (!company) return;
@@ -75,6 +81,7 @@ export default function Dashboard() {
     const inventoryRef = collection(db, 'companies', company.id, 'inventory');
     const unsubscribeInventory = onSnapshot(inventoryRef, (snapshot) => {
       const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+      setInventoryItems(items);
       setInventoryCount(items.length);
       setLowStockCount(items.filter((item) => Number(item.quantity || 0) <= 5).length);
 
@@ -102,12 +109,15 @@ export default function Dashboard() {
     };
   }, [company]);
 
+
   const year = new Date().getFullYear().toString();
   const month = new Date().toLocaleString('default', { month: 'long' });
+
 
   const monthlyBagsSold = Number(stats.soldPieces?.[year]?.[month] || 0);
   const monthlySales = Number(stats.soldAmount?.[year]?.[month] || 0);
   const monthlyRevenue = Number(stats.revenues?.[year]?.[month] || 0);
+
 
   const cards = [
     {
@@ -144,6 +154,7 @@ export default function Dashboard() {
     },
   ];
 
+
   const getStatusStyle = (status: string) => {
     const s = status?.toLowerCase();
     if (s === 'completed') return 'bg-emerald/10 text-emerald-700 border border-emerald/20';
@@ -152,6 +163,7 @@ export default function Dashboard() {
     return 'bg-slate/10 text-slate-500 border border-slate/20';
   };
 
+
   const getMvtStyle = (mvt: string) => {
     const m = mvt?.toLowerCase();
     if (m === 'sales') return 'bg-emerald/10 text-emerald-700 border border-emerald/20';
@@ -159,6 +171,7 @@ export default function Dashboard() {
     if (m === 'production') return 'bg-blue/10 text-blue-700 border border-blue/20';
     return 'bg-slate/10 text-slate-500 border border-slate/20';
   };
+
 
   const formatDate = (value?: Timestamp) => {
     if (!value) return '-';
@@ -170,12 +183,20 @@ export default function Dashboard() {
     });
   };
 
+
+  const getItemPhoto = (itemName: string) => {
+    const item = inventoryItems.find((i) => i.name === itemName);
+    return item?.photoURL || null;
+  };
+
+
   const q = customerSearch.toLowerCase();
   const filteredTransactions = recentTransactions.filter((txn) =>
     String(txn.customerName || '').toLowerCase().includes(q) ||
     String(txn.mvt || '').toLowerCase().includes(q) ||
     String(txn.items?.join(' ') || '').toLowerCase().includes(q)
   );
+
 
   return (
     <div className="space-y-8">
@@ -305,14 +326,30 @@ export default function Dashboard() {
                   <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-bold">
                     {txn.totalProducts || '-'}
                   </td>
-                  <td className="px-6 py-4 max-w-[200px]">
+                  <td className="px-6 py-4 max-w-[280px]">
                     {txn.items?.length ? (
-                      <div className="space-y-0.5">
-                        {txn.items.slice(0, 2).map((item, i) => (
-                          <span key={i} className="inline-block bg-slate-100/50 dark:bg-slate-800/50 px-2 py-0.5 rounded text-xs text-slate-700 dark:text-slate-300">
-                            {item}
-                          </span>
-                        ))}
+                      <div className="space-y-1.5">
+                        {txn.items.slice(0, 2).map((item, i) => {
+                          const photoUrl = getItemPhoto(item);
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              {photoUrl ? (
+                                <img
+                                  src={photoUrl}
+                                  alt={item}
+                                  className="w-8 h-8 rounded-md object-cover border border-slate-200 dark:border-slate-700"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+                                  <PackageIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                                </div>
+                              )}
+                              <span className="inline-block bg-slate-100/50 dark:bg-slate-800/50 px-2 py-0.5 rounded text-xs text-slate-700 dark:text-slate-300">
+                                {item}
+                              </span>
+                            </div>
+                          );
+                        })}
                         {txn.items.length > 2 && (
                           <span className="text-slate-400 text-xs">+{txn.items.length - 2}</span>
                         )}
