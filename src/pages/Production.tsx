@@ -116,10 +116,8 @@ export default function Production() {
     !!selectedItem &&
     !!amount &&
     Number(amount) > 0 &&
-    (
-      selectedCustomer === 'WAREHOUSE' ||
-      (selectedCustomer === 'OTHER' && newCustomerName.trim().length > 0)
-    ) &&
+    selectedCustomer !== '' &&
+    (selectedCustomer !== 'OTHER' || newCustomerName.trim().length > 0) &&
     !processing;
 
 
@@ -136,7 +134,7 @@ export default function Production() {
     if (!company || !canCreate) return;
 
     setProcessing(true);
-    notify.success('Creating production batch...');
+    const loader = notify.loading('Creating production batch...');
     try {
       const saleId = Math.random().toString(36).slice(2, 12).toUpperCase();
       const item = inventoryItems.find((x) => x.id === selectedItem);
@@ -183,6 +181,7 @@ export default function Production() {
         );
       }
 
+      notify.dismiss(loader);
       notify.success('New job created');
       setShowNewJob(false);
       setSelectedItem('');
@@ -190,6 +189,7 @@ export default function Production() {
       setSelectedCustomer('');
       setNewCustomerName('');
     } catch (err: any) {
+      notify.dismiss(loader);
       notify.error('We encountered a fatal error');
       console.error(err);
     } finally {
