@@ -197,7 +197,18 @@ export default function Dashboard() {
     String(txn.items?.join(' ') || '').toLowerCase().includes(q)
   );
 
-  const deviceOS = typeof window !== 'undefined' && navigator.userAgent.includes('Windows') ? 'Windows' : 'Other OS';
+  const getDeviceOS = () => {
+    if (typeof window === 'undefined') return 'Unknown OS';
+    const ua = navigator.userAgent;
+    if (/Android/i.test(ua)) return 'Android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+    if (/Windows/i.test(ua)) return 'Windows';
+    if (/Macintosh/i.test(ua)) return 'macOS';
+    if (/Linux/i.test(ua)) return 'Linux';
+    return 'Other OS';
+  };
+
+  const deviceOS = getDeviceOS();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
   // Safe extraction of network statistics
